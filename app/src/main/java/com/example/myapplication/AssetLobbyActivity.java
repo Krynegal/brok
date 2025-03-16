@@ -1,7 +1,9 @@
 package com.example.myapplication;
 
+import android.annotation.SuppressLint;
 import android.app.AlertDialog;
 import android.content.DialogInterface;
+import android.content.Intent;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.ArrayAdapter;
@@ -18,23 +20,37 @@ import androidx.appcompat.app.AppCompatActivity;
 import org.w3c.dom.Text;
 
 public class AssetLobbyActivity extends AppCompatActivity {
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_asset_lobby);
+
+        // Получаем переданные данные
+        final int position = getIntent().getIntExtra("position", -1);
+
+        String name = getIntent().getStringExtra("assetName");
+        TextView assetName = findViewById(R.id.assetNameView);
+        assetName.setText(name);
+
+        String value = getIntent().getStringExtra("assetValue");
+        TextView assetValue = findViewById(R.id.assetValueView);
+        assetValue.setText(value);
+
+        String profit = getIntent().getStringExtra("assetProfit");
+        TextView assetProfit = findViewById(R.id.assetProfitView);
+        assetProfit.setText(profit);
 
         Button btnAddAsset = findViewById(R.id.button2);
 
         btnAddAsset.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                showInputDialog();
+                showInputDialog(position);
             }
         });
     }
 
-    private void showInputDialog() {
+    private void showInputDialog(int position) {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         builder.setTitle("Создание операции");
 
@@ -48,7 +64,7 @@ public class AssetLobbyActivity extends AppCompatActivity {
         final TextView operationName = new TextView(this);
         final Spinner spinner = new Spinner(this);
 
-        String[] operations = { "Ввод средств", "Вывод средств", "Изменение стоимости", "Дивиденты"};
+        String[] operations = {"Ввод средств", "Вывод средств", "Изменение стоимости", "Дивиденты"};
 
         // Создаем адаптер ArrayAdapter с помощью массива строк и стандартной разметки элемета spinner
         ArrayAdapter<String> adapter = new ArrayAdapter(this, android.R.layout.simple_spinner_item, operations);
@@ -67,7 +83,7 @@ public class AssetLobbyActivity extends AppCompatActivity {
             public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
 
                 // Получаем выбранный объект
-                String item = (String)parent.getItemAtPosition(position);
+                String item = (String) parent.getItemAtPosition(position);
                 operationName.setText(item);
             }
 
@@ -97,11 +113,37 @@ public class AssetLobbyActivity extends AppCompatActivity {
                 a.addView(assetLog);
                 // Layout для одного лога
 
+                TextView assetName = findViewById(R.id.assetNameView);
+                TextView assetValue = findViewById(R.id.assetValueView);
+                TextView assetProfit = findViewById(R.id.assetProfitView);
+
+                int assetOld = Integer.parseInt(assetValue.getText().toString());
+                int sum = Integer.parseInt(userInputSum);
+
+                String newAssetValue = "";
+                // TODO учесть тип операции
+                switch (operationName.getText().toString()) {
+                    case "Ввод средств":
+                        newAssetValue = String.valueOf(assetOld + sum);
+                        break;
+                    case "Вывод средств":
+                        newAssetValue = String.valueOf(assetOld - sum);
+                        break;
+                }
+                assetValue.setText(newAssetValue);
+
                 myRoot.addView(a, 0);
 
                 // Обновляем LinearLayout
                 myRoot.requestLayout();
                 myRoot.invalidate();
+
+                Intent resultIntent = new Intent();
+                resultIntent.putExtra("position", position);
+                resultIntent.putExtra("assetName", assetName.getText());
+                resultIntent.putExtra("assetValue", newAssetValue);
+                resultIntent.putExtra("assetProfit", assetProfit.getText());
+                setResult(RESULT_OK, resultIntent);
             }
         });
 
