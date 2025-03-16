@@ -17,15 +17,31 @@ public class Asset {
         return name;
     }
 
+    public void setName(String name) {
+        this.name = name;
+    }
+
     public String getValue() {
         return value;
+    }
+
+    public void setValue(String value) {
+        this.value = value;
     }
 
     public String getProfit() {
         return profit;
     }
 
+    public void setProfit(String profit) {
+        this.profit = profit;
+    }
+
     public String getXIRR() {
         return XIRR;
+    }
+
+    public void setXIRR(String xirr) {
+        this.XIRR = xirr;
     }
 }

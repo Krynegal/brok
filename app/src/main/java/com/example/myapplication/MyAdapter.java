@@ -1,5 +1,6 @@
 package com.example.myapplication;
 
+import android.content.Intent;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -36,6 +37,12 @@ public class MyAdapter extends RecyclerView.Adapter<MyAdapter.MyViewHolder> {
         notifyItemInserted(assetList.size() - 1);
     }
 
+    public void updateAsset(int position, Asset newAsset) {
+        assetList.set(position, newAsset);
+        //notifyItemInserted(assetList.size() - 1);
+        notifyItemChanged(position);
+    }
+
     @NonNull
     @Override
     public MyViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
@@ -59,6 +66,11 @@ public class MyAdapter extends RecyclerView.Adapter<MyAdapter.MyViewHolder> {
         holder.itemView.setOnClickListener(v -> {
             // Вызываем метод onItemClickListener, чтобы сообщить о клике на элемент
             onItemClickListener.onItemClick(position);
+
+//            Intent intent = new Intent(context, AssetLobbyActivity.class);
+//            intent.putExtra("name", item.getName());
+//            intent.putExtra("description", item.getDescription());
+//            context.startActivity(intent);
         });
     }
 

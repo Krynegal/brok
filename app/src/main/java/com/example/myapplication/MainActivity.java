@@ -7,6 +7,8 @@ import android.os.Bundle;
 
 import com.example.myapplication.Models.Asset;
 
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
 
 import android.view.View;
@@ -30,6 +32,7 @@ public class MainActivity extends AppCompatActivity {
 
     private AppBarConfiguration appBarConfiguration;
     private ActivityMainBinding binding;
+    private ActivityResultLauncher<Intent> resultLauncher;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -65,13 +68,37 @@ public class MainActivity extends AppCompatActivity {
 
         recyclerView.setLayoutManager(new LinearLayoutManager(MainActivity.this));
 
+        // Создаём обработчик для получения данных из нового Activity
+        resultLauncher = registerForActivityResult(
+                new ActivityResultContracts.StartActivityForResult(),
+                result -> {
+                    // Когда возвращаемся из нового Activity, обрабатываем полученные данные
+                    if (result.getResultCode() == RESULT_OK && result.getData() != null) {
+                        String assetName = result.getData().getStringExtra("assetName");
+                        String assetValue = result.getData().getStringExtra("assetValue");
+                        String assetProfit = result.getData().getStringExtra("assetProfit");
+
+                        int position = result.getData().getIntExtra("position", -1);
+                        updateItemInAdapter(new Asset(assetName, assetValue, assetProfit, "0"), position);
+                    }
+                }
+        );
+
         MyAdapter adapter = new MyAdapter(assetList, new MyAdapter.OnItemClickListener() {
             @Override
             public void onItemClick(int position) {
                 // Действия при клике на элемент
                 Asset asset = assetList.get(position);
 
-                startActivity(new Intent(MainActivity.this, AssetLobbyActivity.class));
+
+                Intent intent = new Intent(MainActivity.this, AssetLobbyActivity.class);
+
+                intent.putExtra("position", position);
+                intent.putExtra("assetName", asset.getName());
+                intent.putExtra("assetValue", asset.getValue());
+                intent.putExtra("assetProfit", asset.getProfit());
+
+                resultLauncher.launch(intent);
             }
         });
         recyclerView.setAdapter(adapter);
@@ -82,6 +109,17 @@ public class MainActivity extends AppCompatActivity {
                 showInputDialog(adapter);
             }
         });
+    }
+
+    // Метод для обновления данных в адаптере
+    private void updateItemInAdapter(Asset asset, int position) {
+        if (position != -1) {
+            // Обновляем данные в адаптере
+            MyAdapter adapter = (MyAdapter) ((RecyclerView) findViewById(R.id.recyclerView)).getAdapter();
+            if (adapter != null) {
+                adapter.updateAsset(position, asset);
+            }
+        }
     }
 
     private void showInputDialog(MyAdapter adapter) {
@@ -112,6 +150,7 @@ public class MainActivity extends AppCompatActivity {
 
                 Toast.makeText(MainActivity.this, "Добавлен актив: " + userInputAssetName + "со стартовым балансом " + userInputStartBalance, Toast.LENGTH_SHORT).show();
 
+                // TODO отрефакторить
                 adapter.addAsset(new Asset(userInputAssetName, userInputStartBalance,
                         "0", "0"));
 
