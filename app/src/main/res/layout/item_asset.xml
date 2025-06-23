@@ -5,7 +5,7 @@
     android:layout_height="105dp">
 
     <TextView
-        android:id="@+id/examName"
+        android:id="@+id/textViewAssetName"
         android:layout_width="200dp"
         android:layout_height="wrap_content"
         android:layout_marginStart="20dp"
@@ -17,49 +17,49 @@
         android:textSize="16sp" />
 
     <ImageView
-        android:id="@+id/examPic"
+        android:id="@+id/imageViewAssetIcon"
         android:layout_width="20dp"
         android:layout_height="20dp"
-        android:layout_below="@+id/examName"
+        android:layout_below="@+id/textViewAssetName"
         android:layout_marginStart="20dp"
         android:layout_marginTop="7dp" />
 
     <TextView
-        android:id="@+id/examDate"
+        android:id="@+id/textViewAssetValue"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_below="@+id/examName"
+        android:layout_below="@+id/textViewAssetName"
         android:layout_marginStart="10dp"
         android:layout_marginTop="5dp"
         android:layout_marginEnd="20dp"
-        android:layout_toEndOf="@+id/examPic"
+        android:layout_toEndOf="@+id/imageViewAssetIcon"
         android:gravity="center"
         android:text="May 23, 2015"
         android:textSize="16sp" />
 
     <ImageView
-        android:id="@+id/examPic2"
+        android:id="@+id/imageViewAssetStatus"
         android:layout_width="20dp"
         android:layout_height="20dp"
-        android:layout_below="@+id/examDate"
+        android:layout_below="@+id/textViewAssetValue"
         android:layout_marginStart="20dp"
         android:layout_marginTop="7dp" />
 
     <TextView
-        android:id="@+id/examMessage"
+        android:id="@+id/textViewAssetProfit"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_below="@+id/examDate"
+        android:layout_below="@+id/textViewAssetValue"
         android:layout_marginStart="10dp"
         android:layout_marginTop="5dp"
         android:layout_marginEnd="20dp"
-        android:layout_toEndOf="@+id/examPic2"
+        android:layout_toEndOf="@+id/imageViewAssetStatus"
         android:gravity="center"
         android:text="Best Of Luck"
         android:textSize="16sp" />
 
     <TextView
-        android:id="@+id/border2"
+        android:id="@+id/viewDivider"
         android:layout_width="match_parent"
         android:layout_height="1dp"
         android:layout_alignParentBottom="true"

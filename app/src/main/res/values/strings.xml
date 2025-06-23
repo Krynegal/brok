@@ -43,4 +43,17 @@
         libero vel nunc consequat, quis tincidunt nisl eleifend. Cras bibendum enim a justo luctus
         vestibulum. Fusce dictum libero quis erat maximus, vitae volutpat diam dignissim.
     </string>
+
+    <string name="add_new_asset">Добавить новый актив</string>
+    <string name="done">Готово</string>
+    <string name="cancel">Отмена</string>
+    <string name="asset_added">Добавлен актив: %1$s со стартовым балансом %2$s</string>
+    <string name="fill_all_fields">Заполните все поля</string>
+    <string name="enter_valid_number">Введите корректное число</string>
+    <string name="asset_name_hint">Название актива</string>
+    <string name="start_balance_hint">Стартовый баланс</string>
+    <string name="assets_sum_label">Сумма активов</string>
+    <string name="plus_sign">+</string>
+    <string name="broker_account_1">Брокерский счет 1</string>
+    <string name="broker_account_2">Брокерский счет 2</string>
 </resources>

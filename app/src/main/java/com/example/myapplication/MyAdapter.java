@@ -17,6 +17,7 @@ import java.util.List;
 public class MyAdapter extends RecyclerView.Adapter<MyAdapter.MyViewHolder> {
 
     private List<Asset> assetList;
+    private Double totalAssetsSum;
     private OnItemClickListener onItemClickListener;
 
     // Интерфейс для обработки кликов
@@ -25,14 +26,16 @@ public class MyAdapter extends RecyclerView.Adapter<MyAdapter.MyViewHolder> {
     }
 
     // Constructor
-    public MyAdapter(List<Asset> examList, OnItemClickListener listener) {
-        this.assetList = examList;
+    public MyAdapter(List<Asset> assetList, OnItemClickListener listener) {
+        this.assetList = assetList;
         this.onItemClickListener = listener;
+        updateTotalSum();
     }
 
     // Метод для добавления нового элемента
     public void addAsset(Asset newAsset) {
         assetList.add(newAsset);
+        updateTotalSum();
         // Уведомляем адаптер, что элемент был добавлен
         notifyItemInserted(assetList.size() - 1);
     }
@@ -40,37 +43,44 @@ public class MyAdapter extends RecyclerView.Adapter<MyAdapter.MyViewHolder> {
     public void updateAsset(int position, Asset newAsset) {
         assetList.set(position, newAsset);
         //notifyItemInserted(assetList.size() - 1);
+        updateTotalSum();
         notifyItemChanged(position);
+    }
+
+    // Обновляем сумму всех элементов
+    private void updateTotalSum() {
+        totalAssetsSum = 0.0;
+        for (Asset asset : assetList) {
+            totalAssetsSum += asset.getBalance();
+        }
+    }
+
+    public Double getTotalSum() {
+        return totalAssetsSum;
     }
 
     @NonNull
     @Override
     public MyViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
         View view = LayoutInflater.from(parent.getContext())
-                .inflate(R.layout.exam_card, parent, false);
+                .inflate(R.layout.item_asset, parent, false);
         return new MyViewHolder(view);
     }
 
     @Override
     public void onBindViewHolder(@NonNull MyViewHolder holder, int position) {
-        Asset examItem = assetList.get(position);
+        Asset assetItem = assetList.get(position);
+        // holder.textViewAssetName.setText(assetItem.getName());
+        // holder.textViewAssetValue.setText(assetItem.getValue());
+        // holder.textViewAssetProfit.setText(assetItem.getProfit());
+        holder.textViewAssetName.setText(assetItem.getName());
+        holder.textViewAssetValue.setText(String.valueOf(assetItem.getBalance()));
+        holder.textViewAssetProfit.setText(assetItem.getType()); // или другое поле, если нужно
 
-        holder.examName.setText(examItem.getName());
-        holder.examDate.setText(examItem.getValue());
-        holder.examMessage.setText(examItem.getProfit());
-//        holder.examPic.setImageResource(examItem.getImage1());
-//        holder.examPic2.setImageResource(examItem.getImage2());
-
-        //holder.examName.setText(data.get(position));
-
+        //holder.imageViewAssetIcon.setImageResource(...); // если нужно
+        //holder.imageViewAssetStatus.setImageResource(...); // если нужно
         holder.itemView.setOnClickListener(v -> {
-            // Вызываем метод onItemClickListener, чтобы сообщить о клике на элемент
             onItemClickListener.onItemClick(position);
-
-//            Intent intent = new Intent(context, AssetLobbyActivity.class);
-//            intent.putExtra("name", item.getName());
-//            intent.putExtra("description", item.getDescription());
-//            context.startActivity(intent);
         });
     }
 
@@ -81,18 +91,15 @@ public class MyAdapter extends RecyclerView.Adapter<MyAdapter.MyViewHolder> {
 
     // ViewHolder class
     static class MyViewHolder extends RecyclerView.ViewHolder {
-        TextView examName, examDate, examMessage;
-        ImageView examPic, examPic2;
-
+        TextView textViewAssetName, textViewAssetValue, textViewAssetProfit;
+        ImageView imageViewAssetIcon, imageViewAssetStatus;
         public MyViewHolder(@NonNull View itemView) {
-
             super(itemView);
-
-            examName = itemView.findViewById(R.id.examName);
-            examDate = itemView.findViewById(R.id.examDate);
-            examMessage = itemView.findViewById(R.id.examMessage);
-            examPic = itemView.findViewById(R.id.examPic);
-            examPic2 = itemView.findViewById(R.id.examPic2);
+            textViewAssetName = itemView.findViewById(R.id.textViewAssetName);
+            textViewAssetValue = itemView.findViewById(R.id.textViewAssetValue);
+            textViewAssetProfit = itemView.findViewById(R.id.textViewAssetProfit);
+            imageViewAssetIcon = itemView.findViewById(R.id.imageViewAssetIcon);
+            imageViewAssetStatus = itemView.findViewById(R.id.imageViewAssetStatus);
         }
     }
 }

@@ -3,6 +3,7 @@ package com.example.myapplication;
 import android.app.AlertDialog;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.os.Bundle;
 
 import com.example.myapplication.Models.Asset;
@@ -11,6 +12,7 @@ import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
 
+import android.util.Log;
 import android.view.View;
 
 import androidx.navigation.ui.AppBarConfiguration;
@@ -23,10 +25,23 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.widget.EditText;
 import android.widget.LinearLayout;
+import android.widget.TextView;
 import android.widget.Toast;
+
+import org.w3c.dom.Text;
 
 import java.util.ArrayList;
 import java.util.List;
+
+import retrofit2.Call;
+import retrofit2.http.GET;
+import retrofit2.http.POST;
+import retrofit2.http.Body;
+
+import retrofit2.Retrofit;
+import retrofit2.converter.gson.GsonConverterFactory;
+import retrofit2.Callback;
+import retrofit2.Response;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -40,6 +55,15 @@ public class MainActivity extends AppCompatActivity {
 
         binding = ActivityMainBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
+
+        SharedPreferences prefs = getSharedPreferences("auth", MODE_PRIVATE);
+        String rawToken = prefs.getString("token", null);
+        if (rawToken == null) {
+            startActivity(new Intent(this, LoginActivity.class));
+            finish();
+            return;
+        }
+        final String token = "Bearer " + rawToken;
 
         //setSupportActionBar(binding.toolbar);
 
@@ -56,15 +80,15 @@ public class MainActivity extends AppCompatActivity {
 //            }
 //        });
 
-        RecyclerView recyclerView = findViewById(R.id.recyclerView);
+        TextView totalAssetsSum = findViewById(R.id.textViewAssetsSum);
+
+        RecyclerView recyclerView = findViewById(R.id.recyclerViewAssets);
 
         List<Asset> assetList = new ArrayList<>();
 
-        assetList.add(new Asset("Брокерский счет 1", "123",
-                "0", "10"));
+        assetList.add(new Asset(getString(R.string.broker_account_1), "type1", 100.0));
 
-        assetList.add(new Asset("Брокерский счет 2", "456",
-                "100", "20"));
+        assetList.add(new Asset(getString(R.string.broker_account_2), "type2", 200.0));
 
         recyclerView.setLayoutManager(new LinearLayoutManager(MainActivity.this));
 
@@ -76,10 +100,13 @@ public class MainActivity extends AppCompatActivity {
                     if (result.getResultCode() == RESULT_OK && result.getData() != null) {
                         String assetName = result.getData().getStringExtra("assetName");
                         String assetValue = result.getData().getStringExtra("assetValue");
-                        String assetProfit = result.getData().getStringExtra("assetProfit");
+                        //String assetProfit = result.getData().getStringExtra("assetProfit");
 
                         int position = result.getData().getIntExtra("position", -1);
-                        updateItemInAdapter(new Asset(assetName, assetValue, assetProfit, "0"), position);
+                        updateItemInAdapter(new Asset(assetName, assetValue, 0.0), position);
+
+                        //updateTotalSumTextView(totalAssetsSum);
+                        updateTotalSumTextView();
                     }
                 }
         );
@@ -95,18 +122,39 @@ public class MainActivity extends AppCompatActivity {
 
                 intent.putExtra("position", position);
                 intent.putExtra("assetName", asset.getName());
-                intent.putExtra("assetValue", asset.getValue());
-                intent.putExtra("assetProfit", asset.getProfit());
+                intent.putExtra("assetBalance", asset.getBalance());
+                //intent.putExtra("assetProfit", asset.getProfit());
 
                 resultLauncher.launch(intent);
             }
         });
         recyclerView.setAdapter(adapter);
 
+        // Загрузка активов из API
+        AssetApiService api = ApiClient.getClient().create(AssetApiService.class);
+        api.getAssets(token).enqueue(new Callback<List<Asset>>() {
+            @Override
+            public void onResponse(Call<List<Asset>> call, Response<List<Asset>> response) {
+                if (response.isSuccessful() && response.body() != null) {
+                    assetList.clear();
+                    assetList.addAll(response.body());
+                    adapter.notifyDataSetChanged();
+                    updateTotalSumTextView();
+                } else {
+                    Toast.makeText(MainActivity.this, "Ошибка загрузки активов", Toast.LENGTH_SHORT).show();
+                }
+            }
+
+            @Override
+            public void onFailure(Call<List<Asset>> call, Throwable t) {
+                Toast.makeText(MainActivity.this, "Ошибка сети", Toast.LENGTH_SHORT).show();
+            }
+        });
+
         binding.buttonAddAsset.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                showInputDialog(adapter);
+                showInputDialog(adapter, api, token, assetList);
             }
         });
     }
@@ -115,71 +163,77 @@ public class MainActivity extends AppCompatActivity {
     private void updateItemInAdapter(Asset asset, int position) {
         if (position != -1) {
             // Обновляем данные в адаптере
-            MyAdapter adapter = (MyAdapter) ((RecyclerView) findViewById(R.id.recyclerView)).getAdapter();
+            MyAdapter adapter = (MyAdapter) ((RecyclerView) findViewById(R.id.recyclerViewAssets)).getAdapter();
             if (adapter != null) {
                 adapter.updateAsset(position, asset);
             }
         }
     }
 
-    private void showInputDialog(MyAdapter adapter) {
-        AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        builder.setTitle("Добавить новый актив");
+    //private void updateTotalSumTextView(TextView totalAssetsSum) {
+    private void updateTotalSumTextView() {
+        MyAdapter adapter = (MyAdapter) ((RecyclerView) findViewById(R.id.recyclerViewAssets)).getAdapter();
 
+        if (adapter != null) {
+            Double totalSum = adapter.getTotalSum();
+
+            TextView totalAssetsSum = findViewById(R.id.textViewAssetsSum);
+
+            totalAssetsSum.setText(String.valueOf(totalSum));
+        }
+    }
+
+    private void showInputDialog(MyAdapter adapter, AssetApiService api, String token, List<Asset> assetList) {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle(getString(R.string.add_new_asset));
         LinearLayout dialogLayout = new LinearLayout(this);
         dialogLayout.setOrientation(LinearLayout.VERTICAL);
-
         final EditText assetNameInput = new EditText(this);
-        final EditText startBalanceInput = new EditText(this);
-
-        assetNameInput.setHint("Название актива");
-        startBalanceInput.setHint("Стартовый баланс");
-
+        final EditText assetTypeInput = new EditText(this);
+        assetNameInput.setHint(getString(R.string.asset_name_hint));
+        assetTypeInput.setHint("Тип актива");
         dialogLayout.addView(assetNameInput);
-        dialogLayout.addView(startBalanceInput);
-
+        dialogLayout.addView(assetTypeInput);
         builder.setView(dialogLayout);
-
-        //LinearLayout myRoot = findViewById(R.id.assetsLayout);
-
-        builder.setPositiveButton("Готово", new DialogInterface.OnClickListener() {
+        builder.setPositiveButton(getString(R.string.done), new DialogInterface.OnClickListener() {
             @Override
             public void onClick(DialogInterface dialog, int which) {
                 String userInputAssetName = assetNameInput.getText().toString();
-                String userInputStartBalance = startBalanceInput.getText().toString(); // TODO валидация
+                String userInputAssetType = assetTypeInput.getText().toString();
+                if (userInputAssetName.isEmpty() || userInputAssetType.isEmpty()) {
+                    Toast.makeText(MainActivity.this, getString(R.string.fill_all_fields), Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                CreateAssetRequest req = new CreateAssetRequest();
+                req.name = userInputAssetName;
+                req.type = userInputAssetType;
+                api.createAsset(token, req).enqueue(new Callback<Asset>() {
+                    @Override
+                    public void onResponse(Call<Asset> call, Response<Asset> response) {
+                        if (response.isSuccessful() && response.body() != null) {
+                            Log.d("CREATE ASSET", "Asset created: " + response.body().toString());
+                            assetList.add(response.body());
+                            adapter.notifyItemInserted(assetList.size() - 1);
+                            updateTotalSumTextView();
+                            Toast.makeText(MainActivity.this, "Актив добавлен", Toast.LENGTH_SHORT).show();
+                        } else {
+                            Toast.makeText(MainActivity.this, "Ошибка добавления актива", Toast.LENGTH_SHORT).show();
+                        }
+                    }
 
-                Toast.makeText(MainActivity.this, "Добавлен актив: " + userInputAssetName + "со стартовым балансом " + userInputStartBalance, Toast.LENGTH_SHORT).show();
-
-                // TODO отрефакторить
-                adapter.addAsset(new Asset(userInputAssetName, userInputStartBalance,
-                        "0", "0"));
-
-//                // Layout для одного лога
-//                LinearLayout a = new LinearLayout(MainActivity.this);
-//                a.setOrientation(LinearLayout.VERTICAL);
-//
-//                TextView assetLog = new TextView(MainActivity.this);
-//
-//                assetLog.setText(String.format("%s\t$%s", operationName.getText(), userInputSum));
-//
-//                a.addView(assetLog);
-//                // Layout для одного лога
-//
-//                myRoot.addView(a, 0);
-//
-//                // Обновляем LinearLayout
-//                myRoot.requestLayout();
-//                myRoot.invalidate();
+                    @Override
+                    public void onFailure(Call<Asset> call, Throwable t) {
+                        Toast.makeText(MainActivity.this, "Ошибка сети", Toast.LENGTH_SHORT).show();
+                    }
+                });
             }
         });
-
-        builder.setNegativeButton("Отмена", new DialogInterface.OnClickListener() {
+        builder.setNegativeButton(getString(R.string.cancel), new DialogInterface.OnClickListener() {
             @Override
             public void onClick(DialogInterface dialog, int which) {
                 dialog.cancel();
             }
         });
-
         builder.show();
     }
 

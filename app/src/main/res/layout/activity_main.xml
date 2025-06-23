@@ -18,7 +18,7 @@
     <!--    <include layout="@layout/content_main" />-->
 
     <Button
-        android:id="@+id/button7"
+        android:id="@+id/buttonShowSummary"
         android:layout_width="296dp"
         android:layout_height="176dp"
         android:backgroundTint="#E7D5D5"
@@ -34,7 +34,7 @@
         app:layout_constraintVertical_bias="0.131" />
 
     <TextView
-        android:id="@+id/textView4"
+        android:id="@+id/textViewAssetsSum"
         android:layout_width="218dp"
         android:layout_height="41dp"
         app:layout_constraintBottom_toBottomOf="parent"
@@ -44,13 +44,13 @@
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintVertical_bias="0.248" />
 
-    <EditText
-        android:id="@+id/editTextText4"
+    <TextView
+        android:id="@+id/textViewAssetsLabel"
         android:layout_width="213dp"
         android:layout_height="60dp"
         android:ems="10"
         android:inputType="text"
-        android:text="Сумма активов"
+        android:text="@string/assets_sum_label"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintHorizontal_bias="0.445"
@@ -62,7 +62,7 @@
         android:id="@+id/buttonAddAsset"
         android:layout_width="65dp"
         android:layout_height="69dp"
-        android:text="+"
+        android:text="@string/plus_sign"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintHorizontal_bias="0.91"
@@ -71,14 +71,14 @@
         app:layout_constraintVertical_bias="0.956" />
 
     <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/recyclerView"
+        android:id="@+id/recyclerViewAssets"
         android:layout_width="357dp"
         android:layout_height="419dp"
         android:layout_marginTop="20dp"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/button7"
+        app:layout_constraintTop_toBottomOf="@+id/buttonShowSummary"
         app:layout_constraintVertical_bias="0.325" />
 
 
