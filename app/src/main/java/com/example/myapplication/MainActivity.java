@@ -48,6 +48,8 @@ public class MainActivity extends AppCompatActivity {
     private AppBarConfiguration appBarConfiguration;
     private ActivityMainBinding binding;
     private ActivityResultLauncher<Intent> resultLauncher;
+    private MyAdapter adapter;
+    private List<Asset> assetList = new ArrayList<>();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -84,8 +86,6 @@ public class MainActivity extends AppCompatActivity {
 
         RecyclerView recyclerView = findViewById(R.id.recyclerViewAssets);
 
-        List<Asset> assetList = new ArrayList<>();
-
         assetList.add(new Asset(getString(R.string.broker_account_1), "type1", 100.0));
 
         assetList.add(new Asset(getString(R.string.broker_account_2), "type2", 200.0));
@@ -96,31 +96,35 @@ public class MainActivity extends AppCompatActivity {
         resultLauncher = registerForActivityResult(
                 new ActivityResultContracts.StartActivityForResult(),
                 result -> {
-                    // Когда возвращаемся из нового Activity, обрабатываем полученные данные
                     if (result.getResultCode() == RESULT_OK && result.getData() != null) {
-                        String assetName = result.getData().getStringExtra("assetName");
-                        String assetValue = result.getData().getStringExtra("assetValue");
-                        //String assetProfit = result.getData().getStringExtra("assetProfit");
-
-                        int position = result.getData().getIntExtra("position", -1);
-                        updateItemInAdapter(new Asset(assetName, assetValue, 0.0), position);
-
-                        //updateTotalSumTextView(totalAssetsSum);
+                        String assetId = result.getData().getStringExtra("assetId");
+                        double newBalance = result.getData().getDoubleExtra("assetBalance", 0.0);
+                        String newName = result.getData().getStringExtra("assetName");
+                        for (int i = 0; i < assetList.size(); i++) {
+                            Asset asset = assetList.get(i);
+                            if (asset.getId() != null && asset.getId().equals(assetId)) {
+                                asset.setBalance(newBalance);
+                                asset.setName(newName);
+                                adapter.notifyItemChanged(i);
+                                break;
+                            }
+                        }
+                        adapter.updateTotalSum();
                         updateTotalSumTextView();
                     }
                 }
         );
 
-        MyAdapter adapter = new MyAdapter(assetList, new MyAdapter.OnItemClickListener() {
+        adapter = new MyAdapter(assetList, new MyAdapter.OnItemClickListener() {
             @Override
             public void onItemClick(int position) {
                 // Действия при клике на элемент
                 Asset asset = assetList.get(position);
 
-
                 Intent intent = new Intent(MainActivity.this, AssetLobbyActivity.class);
 
                 intent.putExtra("position", position);
+                intent.putExtra("assetId", asset.getId());
                 intent.putExtra("assetName", asset.getName());
                 intent.putExtra("assetBalance", asset.getBalance());
                 //intent.putExtra("assetProfit", asset.getProfit());
@@ -129,6 +133,40 @@ public class MainActivity extends AppCompatActivity {
             }
         });
         recyclerView.setAdapter(adapter);
+
+        // Добавляем обработку долгого нажатия для удаления ассета
+        adapter.setOnItemLongClickListener(position -> {
+            Asset asset = assetList.get(position);
+            new AlertDialog.Builder(MainActivity.this)
+                .setTitle("Удалить актив?")
+                .setMessage("Вы действительно хотите удалить актив \"" + asset.getName() + "\"?")
+                .setPositiveButton("Удалить", (dialog, which) -> {
+                    if (rawToken != null) {
+                        //String token = "Bearer " + rawToken;
+                        AssetApiService api = ApiClient.getClient().create(AssetApiService.class);
+                        api.deleteAsset(token, asset.getId()).enqueue(new Callback<Void>() {
+                            @Override
+                            public void onResponse(Call<Void> call, Response<Void> response) {
+                                if (response.isSuccessful()) {
+                                    assetList.remove(position);
+                                    adapter.notifyItemRemoved(position);
+                                    adapter.updateTotalSum();
+                                    updateTotalSumTextView();
+                                    Toast.makeText(MainActivity.this, "Актив удалён", Toast.LENGTH_SHORT).show();
+                                } else {
+                                    Toast.makeText(MainActivity.this, "Ошибка удаления", Toast.LENGTH_SHORT).show();
+                                }
+                            }
+                            @Override
+                            public void onFailure(Call<Void> call, Throwable t) {
+                                Toast.makeText(MainActivity.this, "Ошибка сети", Toast.LENGTH_SHORT).show();
+                            }
+                        });
+                    }
+                })
+                .setNegativeButton("Отмена", null)
+                .show();
+        });
 
         // Загрузка активов из API
         AssetApiService api = ApiClient.getClient().create(AssetApiService.class);
@@ -139,14 +177,28 @@ public class MainActivity extends AppCompatActivity {
                     assetList.clear();
                     assetList.addAll(response.body());
                     adapter.notifyDataSetChanged();
+                    adapter.updateTotalSum();
                     updateTotalSumTextView();
+                    Log.d("MainActivity", "Активы загружены: " + response.body().size() + " шт.");
                 } else {
+                    String errorBody = "";
+                    try {
+                        if (response.errorBody() != null) {
+                            errorBody = response.errorBody().string();
+                        }
+                    } catch (Exception e) {
+                        errorBody = "Не удалось прочитать тело ошибки";
+                    }
+                    Log.e("MainActivity", "Ошибка загрузки активов. HTTP: " + response.code() + 
+                          ", URL: " + call.request().url() + 
+                          ", Error: " + errorBody);
                     Toast.makeText(MainActivity.this, "Ошибка загрузки активов", Toast.LENGTH_SHORT).show();
                 }
             }
 
             @Override
             public void onFailure(Call<List<Asset>> call, Throwable t) {
+                Log.e("MainActivity", "Ошибка сети при загрузке активов", t);
                 Toast.makeText(MainActivity.this, "Ошибка сети", Toast.LENGTH_SHORT).show();
             }
         });
@@ -170,15 +222,10 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    //private void updateTotalSumTextView(TextView totalAssetsSum) {
     private void updateTotalSumTextView() {
-        MyAdapter adapter = (MyAdapter) ((RecyclerView) findViewById(R.id.recyclerViewAssets)).getAdapter();
-
         if (adapter != null) {
             Double totalSum = adapter.getTotalSum();
-
             TextView totalAssetsSum = findViewById(R.id.textViewAssetsSum);
-
             totalAssetsSum.setText(String.valueOf(totalSum));
         }
     }
@@ -217,12 +264,25 @@ public class MainActivity extends AppCompatActivity {
                             updateTotalSumTextView();
                             Toast.makeText(MainActivity.this, "Актив добавлен", Toast.LENGTH_SHORT).show();
                         } else {
+                            String errorBody = "";
+                            try {
+                                if (response.errorBody() != null) {
+                                    errorBody = response.errorBody().string();
+                                }
+                            } catch (Exception e) {
+                                errorBody = "Не удалось прочитать тело ошибки";
+                            }
+                            Log.e("CREATE ASSET", "Ошибка создания актива. HTTP: " + response.code() + 
+                                  ", URL: " + call.request().url() + 
+                                  ", Request: name=" + req.name + ", type=" + req.type +
+                                  ", Error: " + errorBody);
                             Toast.makeText(MainActivity.this, "Ошибка добавления актива", Toast.LENGTH_SHORT).show();
                         }
                     }
 
                     @Override
                     public void onFailure(Call<Asset> call, Throwable t) {
+                        Log.e("CREATE ASSET", "Ошибка сети при создании актива", t);
                         Toast.makeText(MainActivity.this, "Ошибка сети", Toast.LENGTH_SHORT).show();
                     }
                 });
@@ -265,4 +325,13 @@ public class MainActivity extends AppCompatActivity {
 //        return NavigationUI.navigateUp(navController, appBarConfiguration)
 //                || super.onSupportNavigateUp();
 //    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (adapter != null) {
+            adapter.notifyDataSetChanged();
+        }
+        updateTotalSumTextView();
+    }
 }

@@ -1,0 +1,66 @@
+package com.example.myapplication;
+
+import android.view.LayoutInflater;
+import android.view.View;
+import android.view.ViewGroup;
+import android.widget.ImageView;
+import android.widget.TextView;
+
+import androidx.annotation.NonNull;
+import androidx.recyclerview.widget.RecyclerView;
+
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Locale;
+import java.util.List;
+
+public class TransactionAdapter extends RecyclerView.Adapter<TransactionAdapter.TransactionViewHolder> {
+    private List<Transaction> transactionList;
+
+    public TransactionAdapter(List<Transaction> transactionList) {
+        this.transactionList = transactionList;
+    }
+
+    @NonNull
+    @Override
+    public TransactionViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
+        View view = LayoutInflater.from(parent.getContext())
+                .inflate(R.layout.item_transaction, parent, false);
+        return new TransactionViewHolder(view);
+    }
+
+    @Override
+    public void onBindViewHolder(@NonNull TransactionViewHolder holder, int position) {
+        Transaction transaction = transactionList.get(position);
+        // Преобразуем ISO-дату в человекочитаемый формат
+        try {
+            SimpleDateFormat isoFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.getDefault());
+            Date date = isoFormat.parse(transaction.timestamp);
+            SimpleDateFormat displayFormat = new SimpleDateFormat("dd MMM yyyy", Locale.getDefault());
+            holder.textViewTransactionDate.setText(displayFormat.format(date));
+        } catch (Exception e) {
+            holder.textViewTransactionDate.setText(transaction.timestamp); // fallback
+        }
+        holder.textViewTransactionType.setText(transaction.type);
+        holder.textViewTransactionAmount.setText("$" + String.format("%,.0f", transaction.amount));
+        // Можно менять иконку в зависимости от типа операции
+        // holder.imageViewTransactionIcon.setImageResource(...);
+    }
+
+    @Override
+    public int getItemCount() {
+        return transactionList.size();
+    }
+
+    static class TransactionViewHolder extends RecyclerView.ViewHolder {
+        TextView textViewTransactionDate, textViewTransactionType, textViewTransactionAmount;
+        ImageView imageViewTransactionIcon;
+        public TransactionViewHolder(@NonNull View itemView) {
+            super(itemView);
+            textViewTransactionDate = itemView.findViewById(R.id.textViewTransactionDate);
+            textViewTransactionType = itemView.findViewById(R.id.textViewTransactionType);
+            textViewTransactionAmount = itemView.findViewById(R.id.textViewTransactionAmount);
+            imageViewTransactionIcon = itemView.findViewById(R.id.imageViewTransactionIcon);
+        }
+    }
+} 
