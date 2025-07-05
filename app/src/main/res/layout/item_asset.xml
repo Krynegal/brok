@@ -1,22 +1,37 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout
+<com.google.android.material.card.MaterialCardView
     xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:orientation="vertical"
-    android:background="@android:color/white">
+    android:layout_marginStart="8dp"
+    android:layout_marginEnd="8dp"
+    android:layout_marginTop="8dp"
+    android:layout_marginBottom="8dp"
+    app:cardCornerRadius="16dp"
+    app:cardElevation="4dp"
+    app:strokeColor="@color/primary"
+    app:strokeWidth="1dp"
+    app:rippleColor="@color/primary_light"
+    android:clickable="true"
+    android:focusable="true"
+    android:foreground="?android:attr/selectableItemBackgroundBorderless">
 
-    <LinearLayout
+    <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:padding="16dp">
+        android:padding="20dp">
 
         <LinearLayout
+            android:id="@+id/leftBlock"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:orientation="vertical">
+            android:orientation="vertical"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toStartOf="@id/textViewAssetValue"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent"
+            android:layout_marginEnd="8dp">
 
             <TextView
                 android:id="@+id/textViewAssetName"
@@ -24,34 +39,92 @@
                 android:layout_height="wrap_content"
                 android:maxLines="2"
                 android:text="Название актива"
-                android:textColor="@color/black"
-                android:textSize="18sp"
+                android:textColor="@color/text_primary"
+                android:textSize="20sp"
                 android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/textViewAssetType"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Тип актива"
+                android:textColor="@color/text_secondary"
+                android:textSize="15sp"
+                android:layout_marginTop="4dp" />
 
             <TextView
                 android:id="@+id/textViewAssetProfit"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
-                android:text="Тип актива"
-                android:textColor="#666666"
-                android:textSize="14sp" />
+                android:layout_marginTop="6dp"
+                android:text="Прибыль"
+                android:textColor="@color/text_secondary"
+                android:textSize="16sp"
+                android:textStyle="bold" />
+
+            <com.google.android.flexbox.FlexboxLayout
+                android:id="@+id/metricsBlock"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                app:flexWrap="wrap"
+                app:flexDirection="row"
+                android:layout_marginTop="10dp">
+
+                <TextView
+                    android:id="@+id/textViewAssetXirr"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="XIRR: +0%"
+                    android:textColor="@color/metric_xirr"
+                    android:textSize="13sp"
+                    android:background="@drawable/metric_background"
+                    android:paddingStart="10dp"
+                    android:paddingEnd="10dp"
+                    android:paddingTop="4dp"
+                    android:paddingBottom="4dp"
+                    android:layout_marginEnd="6dp" />
+
+                <TextView
+                    android:id="@+id/textViewAssetApy"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="APY: +0%"
+                    android:textColor="@color/metric_apy"
+                    android:textSize="13sp"
+                    android:background="@drawable/metric_background"
+                    android:paddingStart="10dp"
+                    android:paddingEnd="10dp"
+                    android:paddingTop="4dp"
+                    android:paddingBottom="4dp"
+                    android:layout_marginEnd="6dp" />
+
+                <TextView
+                    android:id="@+id/textViewAssetApr"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="APR: +0%"
+                    android:textColor="@color/metric_apr"
+                    android:textSize="13sp"
+                    android:background="@drawable/metric_background"
+                    android:paddingStart="10dp"
+                    android:paddingEnd="10dp"
+                    android:paddingTop="4dp"
+                    android:paddingBottom="4dp" />
+            </com.google.android.flexbox.FlexboxLayout>
         </LinearLayout>
 
         <TextView
             android:id="@+id/textViewAssetValue"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:gravity="end"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent"
             android:text="$0"
-            android:textColor="@color/black"
-            android:textSize="18sp"
-            android:textStyle="bold" />
-    </LinearLayout>
-
-    <View
-        android:layout_width="match_parent"
-        android:layout_height="1dp"
-        android:layout_marginTop="16dp"
-        android:background="#E0E0E0" />
-</LinearLayout>
+            android:textColor="@color/text_primary"
+            android:textSize="22sp"
+            android:textStyle="bold"
+            android:minWidth="72dp"
+            android:gravity="end"/>
+    </androidx.constraintlayout.widget.ConstraintLayout>
+</com.google.android.material.card.MaterialCardView>

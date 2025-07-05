@@ -1,5 +1,6 @@
 package com.example.myapplication;
 
+import android.annotation.SuppressLint;
 import android.app.AlertDialog;
 import android.content.DialogInterface;
 import android.content.Intent;
@@ -9,10 +10,12 @@ import android.util.Log;
 import android.view.View;
 import android.widget.EditText;
 import android.widget.LinearLayout;
+import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.lifecycle.LifecycleOwner;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.activity.OnBackPressedCallback;
@@ -29,13 +32,19 @@ import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
 
+import android.widget.ArrayAdapter;
+
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
+
 public class AssetLobbyActivity extends AppCompatActivity {
     private List<Transaction> transactionList = new ArrayList<>();
     private TransactionAdapter transactionAdapter;
     private String assetId;
     private String token;
     private TextView balanceView;
+    private TextView typeView;
     private double assetBalance;
+    private Asset currentAsset;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -60,16 +69,20 @@ public class AssetLobbyActivity extends AppCompatActivity {
         // Заполняем инфо о счёте
         TextView nameView = findViewById(R.id.textViewAssetName);
         balanceView = findViewById(R.id.textViewAssetBalance);
-        TextView xirrView = findViewById(R.id.textViewXIRR);
-        TextView apyView = findViewById(R.id.textViewAPY);
-        TextView aprView = findViewById(R.id.textViewAPR);
+        TextView xirrView = findViewById(R.id.textViewAssetXirr);
+        TextView apyView = findViewById(R.id.textViewAssetApy);
+        TextView aprView = findViewById(R.id.textViewAssetApr);
+        typeView = findViewById(R.id.textViewAssetType);
         nameView.setText(assetName);
-        xirrView.setText("+150% XIRR"); // Мок-данные, можно заменить на реальные
-        apyView.setText("+130% APY");
-        aprView.setText("+140% APR");
+        // Отображаем тип актива из Intent (с переводом)
+        String assetType = getIntent().getStringExtra("assetType");
+        typeView.setText(Asset.getTypeRu(assetType));
+        xirrView.setText("XIRR: —");
+        apyView.setText("APY: —");
+        aprView.setText("APR: —");
 
         // Настраиваем RecyclerView для операций
-        RecyclerView recyclerView = findViewById(R.id.transactionsRecyclerView);
+        RecyclerView recyclerView = findViewById(R.id.recyclerViewTransactions);
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
         transactionAdapter = new TransactionAdapter(transactionList);
         recyclerView.setAdapter(transactionAdapter);
@@ -85,7 +98,7 @@ public class AssetLobbyActivity extends AppCompatActivity {
         // Загружаем актуальные данные актива и транзакции
         loadAssetData();
 
-        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+        getOnBackPressedDispatcher().addCallback((LifecycleOwner) this, new OnBackPressedCallback(true) {
             @Override
             public void handleOnBackPressed() {
                 Intent resultIntent = new Intent();
@@ -93,6 +106,14 @@ public class AssetLobbyActivity extends AppCompatActivity {
                 resultIntent.putExtra("assetBalance", assetBalance);
                 TextView nameView = findViewById(R.id.textViewAssetName);
                 resultIntent.putExtra("assetName", nameView.getText().toString());
+                
+                // Передаем обновленные значения функции, если они есть
+                if (currentAsset != null) {
+                    resultIntent.putExtra("assetXirr", currentAsset.getXirr());
+                    resultIntent.putExtra("assetApy", currentAsset.getApy());
+                    resultIntent.putExtra("assetApr", currentAsset.getApr());
+                }
+                
                 setResult(RESULT_OK, resultIntent);
                 finish();
             }
@@ -103,13 +124,14 @@ public class AssetLobbyActivity extends AppCompatActivity {
         // Загружаем все активы и находим нужный по ID
         AssetApiService api = ApiClient.getClient().create(AssetApiService.class);
         api.getAssets(token).enqueue(new Callback<List<Asset>>() {
+            @SuppressLint({"SetTextI18n", "DefaultLocale"})
             @Override
             public void onResponse(Call<List<Asset>> call, Response<List<Asset>> response) {
                 if (response.isSuccessful() && response.body() != null) {
                     // Ищем нужный актив по ID
                     Asset targetAsset = null;
                     for (Asset asset : response.body()) {
-                        if (assetId.equals(asset.getId())) {
+                        if (asset.getId() != null && asset.getId().equals(assetId)) {
                             targetAsset = asset;
                             break;
                         }
@@ -122,10 +144,27 @@ public class AssetLobbyActivity extends AppCompatActivity {
                         TextView nameView = findViewById(R.id.textViewAssetName);
                         nameView.setText(targetAsset.getName());
                         
+                        // Обновляем XIRR, APY, APR
+                        TextView xirrView = findViewById(R.id.textViewAssetXirr);
+                        TextView apyView = findViewById(R.id.textViewAssetApy);
+                        TextView aprView = findViewById(R.id.textViewAssetApr);
+                        Double xirr = targetAsset.getXirr();
+                        Double apy = targetAsset.getApy();
+                        Double apr = targetAsset.getApr();
+                        xirrView.setText("XIRR: " + (xirr != null ? String.format("%+.1f%%", xirr) : "—"));
+                        apyView.setText("APY: " + (apy != null ? String.format("%+.1f%%", apy) : "—"));
+                        aprView.setText("APR: " + (apr != null ? String.format("%+.1f%%", apr) : "—"));
+                        
+                        // Обновляем тип актива
+                        String typeEn = targetAsset.getType();
+                        typeView.setText(Asset.getTypeRu(typeEn));
+                        
                         Log.d("AssetLobby", "Актив найден. Баланс: " + assetBalance);
                         
                         // После загрузки актива загружаем транзакции
                         loadTransactionsFromBackend();
+                        updateProfitAndBalance(targetAsset);
+                        currentAsset = targetAsset;
                     } else {
                         Log.e("AssetLobby", "Актив с ID " + assetId + " не найден");
                         Toast.makeText(AssetLobbyActivity.this, "Актив не найден", Toast.LENGTH_SHORT).show();
@@ -166,7 +205,7 @@ public class AssetLobbyActivity extends AppCompatActivity {
                     transactionAdapter.notifyDataSetChanged();
                     
                     // Показываем баланс с backend и рассчитываем прибыль
-                    updateProfitAndBalance();
+                    updateProfitAndBalance(currentAsset);
                     
                     Log.d("AssetLobby", "Транзакции загружены: " + response.body().size() + " шт.");
                 } else {
@@ -206,122 +245,73 @@ public class AssetLobbyActivity extends AppCompatActivity {
         });
     }
 
-    private void updateProfitAndBalance() {
-        double profit = calculateProfit(transactionList);
-        String profitStr = (profit >= 0 ? "+" : "") + "$" + String.format("%,.0f", profit);
-        balanceView.setText("$" + String.format("%,.0f", assetBalance) + " (" + profitStr + ")");
-    }
-
-    private double calculateProfit(List<Transaction> transactions) {
-        double totalIncome = 0;
-        double totalExpense = 0;
-        for (Transaction t : transactions) {
-            if ("income".equals(t.type)) {
-                totalIncome += t.amount;
-            } else if ("expense".equals(t.type)) {
-                totalExpense += t.amount;
-            }
+    private void updateProfitAndBalance(Asset asset) {
+        Double profit = asset.getProfit();
+        String balanceStr = "$" + String.format("%,.0f", assetBalance);
+        if (profit != null) {
+            String profitStr = (profit >= 0 ? "+" : "") + "$" + String.format("%,.0f", profit);
+            balanceStr += " (" + profitStr + ")";
         }
-        return totalIncome - totalExpense;
-    }
-
-    private double calculateNewBalance() {
-        double balance = 0;
-        for (Transaction t : transactionList) {
-            if ("income".equals(t.type)) {
-                balance += t.amount;
-            } else if ("expense".equals(t.type)) {
-                balance -= t.amount;
-            }
-        }
-        return balance;
+        balanceView.setText(balanceStr);
     }
 
     private void showAddTransactionDialog() {
-        AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        builder.setTitle("Добавить операцию");
+        // Маппинг: русский -> английский код
+        final String[] typesRu = {"Выберите тип операции", "Пополнение", "Снятие", "Покупка", "Продажа", "Переоценка", "Дивиденд"};
+        final String[] typesEn = {"", "deposit", "withdrawal", "buy", "sell", "revaluation", "dividend"};
 
-        LinearLayout dialogLayout = new LinearLayout(this);
-        dialogLayout.setOrientation(LinearLayout.VERTICAL);
-        final EditText editType = new EditText(this);
-        editType.setHint("Тип операции (income/expense)");
-        final EditText editAmount = new EditText(this);
-        editAmount.setHint("Сумма");
-        final EditText editDescription = new EditText(this);
-        editDescription.setHint("Описание (необязательно)");
-        dialogLayout.addView(editType);
-        dialogLayout.addView(editAmount);
-        dialogLayout.addView(editDescription);
-        builder.setView(dialogLayout);
+        View dialogView = getLayoutInflater().inflate(R.layout.dialog_add_transaction, null);
+        Spinner typeSpinner = dialogView.findViewById(R.id.spinnerTransactionType);
+        ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, typesRu);
+        typeSpinner.setAdapter(adapter);
+        final com.google.android.material.textfield.TextInputEditText editAmount = dialogView.findViewById(R.id.editTextAmount);
+        final com.google.android.material.textfield.TextInputEditText editDescription = dialogView.findViewById(R.id.editTextDescription);
 
-        builder.setPositiveButton("Готово", new DialogInterface.OnClickListener() {
-            @Override
-            public void onClick(DialogInterface dialog, int which) {
-                String type = editType.getText().toString();
-                String amountStr = editAmount.getText().toString();
-                String description = editDescription.getText().toString();
-                if (type.isEmpty() || amountStr.isEmpty()) {
-                    Toast.makeText(AssetLobbyActivity.this, "Заполните все поля", Toast.LENGTH_SHORT).show();
-                    return;
-                }
-                double amount = 0.0;
-                try {
-                    amount = Double.parseDouble(amountStr.replace(",", "").replace("$", ""));
-                } catch (Exception e) {
-                    Toast.makeText(AssetLobbyActivity.this, "Некорректная сумма", Toast.LENGTH_SHORT).show();
-                    return;
-                }
-                // Отправляем транзакцию на backend
-                CreateTransactionRequest req = new CreateTransactionRequest();
-                req.amount = amount;
-                req.type = type;
-                req.description = description;
-                AssetApiService api = ApiClient.getClient().create(AssetApiService.class);
-                api.createTransaction(token, assetId, req).enqueue(new Callback<Void>() {
-                    @Override
-                    public void onResponse(Call<Void> call, Response<Void> response) {
-                        if (response.isSuccessful()) {
-                            loadAssetData();
-                            Toast.makeText(AssetLobbyActivity.this, "Операция добавлена", Toast.LENGTH_SHORT).show();
-                            Log.d("AssetLobby", "Транзакция успешно добавлена");
-                            // Передаём обновлённые данные актива назад
-                            Intent resultIntent = new Intent();
-                            resultIntent.putExtra("assetId", assetId);
-                            resultIntent.putExtra("assetBalance", assetBalance); // assetBalance обновляется в loadAssetData
-                            TextView nameView = findViewById(R.id.textViewAssetName);
-                            resultIntent.putExtra("assetName", nameView.getText().toString());
-                            setResult(RESULT_OK, resultIntent);
-                            setResult(RESULT_OK);
-                        } else {
-                            String errorBody = "";
-                            try {
-                                if (response.errorBody() != null) {
-                                    errorBody = response.errorBody().string();
-                                }
-                            } catch (Exception e) {
-                                errorBody = "Не удалось прочитать тело ошибки";
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                .setView(dialogView)
+                .setPositiveButton("Добавить", (dialog, which) -> {
+                    int selectedIdx = typeSpinner.getSelectedItemPosition();
+                    if (selectedIdx == 0) {
+                        Toast.makeText(this, "Пожалуйста, выберите тип операции", Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+                    String type = typesEn[selectedIdx];
+                    String amountStr = editAmount.getText() != null ? editAmount.getText().toString() : "";
+                    String description = editDescription.getText() != null ? editDescription.getText().toString() : "";
+                    if (amountStr.isEmpty()) {
+                        Toast.makeText(this, "Введите сумму", Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+                    double amount = 0.0;
+                    try {
+                        amount = Double.parseDouble(amountStr.replace(",", ".").replace("$", ""));
+                    } catch (Exception e) {
+                        Toast.makeText(this, "Некорректная сумма", Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+                    // Отправляем транзакцию на backend
+                    CreateTransactionRequest req = new CreateTransactionRequest();
+                    req.amount = amount;
+                    req.type = type;
+                    req.description = description;
+                    AssetApiService api = ApiClient.getClient().create(AssetApiService.class);
+                    api.createTransaction(token, assetId, req).enqueue(new retrofit2.Callback<Void>() {
+                        @Override
+                        public void onResponse(Call<Void> call, Response<Void> response) {
+                            if (response.isSuccessful()) {
+                                loadAssetData();
+                                Toast.makeText(AssetLobbyActivity.this, "Операция добавлена", Toast.LENGTH_SHORT).show();
+                            } else {
+                                Toast.makeText(AssetLobbyActivity.this, "Ошибка добавления операции", Toast.LENGTH_SHORT).show();
                             }
-                            Log.e("AssetLobby", "Ошибка добавления транзакции. HTTP: " + response.code() + 
-                                  ", URL: " + call.request().url() + 
-                                  ", Request: amount=" + req.amount + ", type=" + req.type + ", description=" + req.description +
-                                  ", Error: " + errorBody);
-                            Toast.makeText(AssetLobbyActivity.this, "Ошибка добавления операции", Toast.LENGTH_SHORT).show();
                         }
-                    }
-                    @Override
-                    public void onFailure(Call<Void> call, Throwable t) {
-                        Log.e("AssetLobby", "Ошибка сети при добавлении транзакции", t);
-                        Toast.makeText(AssetLobbyActivity.this, "Ошибка сети", Toast.LENGTH_SHORT).show();
-                    }
-                });
-            }
-        });
-        builder.setNegativeButton("Отмена", new DialogInterface.OnClickListener() {
-            @Override
-            public void onClick(DialogInterface dialog, int which) {
-                dialog.cancel();
-            }
-        });
-        builder.show();
+                        @Override
+                        public void onFailure(Call<Void> call, Throwable t) {
+                            Toast.makeText(AssetLobbyActivity.this, "Ошибка сети", Toast.LENGTH_SHORT).show();
+                        }
+                    });
+                })
+                .setNegativeButton("Отмена", (dialog, which) -> dialog.cancel())
+                .show();
     }
 }

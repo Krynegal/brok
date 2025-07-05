@@ -2,4 +2,29 @@
 <resources>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
+    
+    <!-- Material Design Colors -->
+    <color name="primary">#1976D2</color>
+    <color name="primary_dark">#1565C0</color>
+    <color name="primary_light">#BBDEFB</color>
+    <color name="accent">#FF4081</color>
+    
+    <!-- Text Colors -->
+    <color name="text_primary">#212121</color>
+    <color name="text_secondary">#757575</color>
+    <color name="text_hint">#BDBDBD</color>
+    
+    <!-- Background Colors -->
+    <color name="background">#FAFAFA</color>
+    <color name="surface">#FFFFFF</color>
+    
+    <!-- Metric Colors -->
+    <color name="metric_xirr">#388E3C</color>
+    <color name="metric_apy">#1976D2</color>
+    <color name="metric_apr">#F57C00</color>
+    
+    <!-- Status Colors -->
+    <color name="positive">#4CAF50</color>
+    <color name="negative">#F44336</color>
+    <color name="neutral">#9E9E9E</color>
 </resources>

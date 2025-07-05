@@ -5,6 +5,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
+import android.view.animation.AnimationUtils;
 
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
@@ -42,6 +43,9 @@ public class MyAdapter extends RecyclerView.Adapter<MyAdapter.MyViewHolder> {
         updateTotalSum();
         // Уведомляем адаптер, что элемент был добавлен
         notifyItemInserted(assetList.size() - 1);
+        if (portfolioUpdateListener != null) {
+            portfolioUpdateListener.onPortfolioUpdated();
+        }
     }
 
     public void updateAsset(int position, Asset newAsset) {
@@ -49,6 +53,9 @@ public class MyAdapter extends RecyclerView.Adapter<MyAdapter.MyViewHolder> {
         //notifyItemInserted(assetList.size() - 1);
         updateTotalSum();
         notifyItemChanged(position);
+        if (portfolioUpdateListener != null) {
+            portfolioUpdateListener.onPortfolioUpdated();
+        }
     }
 
     // Обновляем сумму всех элементов
@@ -57,6 +64,17 @@ public class MyAdapter extends RecyclerView.Adapter<MyAdapter.MyViewHolder> {
         for (Asset asset : assetList) {
             totalAssetsSum += asset.getBalance();
         }
+    }
+
+    // Интерфейс для уведомления об обновлении метрик портфеля
+    public interface OnPortfolioUpdateListener {
+        void onPortfolioUpdated();
+    }
+
+    private OnPortfolioUpdateListener portfolioUpdateListener;
+
+    public void setOnPortfolioUpdateListener(OnPortfolioUpdateListener listener) {
+        this.portfolioUpdateListener = listener;
     }
 
     public Double getTotalSum() {
@@ -79,24 +97,70 @@ public class MyAdapter extends RecyclerView.Adapter<MyAdapter.MyViewHolder> {
     public void onBindViewHolder(@NonNull MyViewHolder holder, int position) {
         Asset assetItem = assetList.get(position);
         
-        // Название актива
-        holder.textViewAssetName.setText(assetItem.getName());
+        // Применяем анимацию для новых элементов
+        if (holder.itemView.getTag() == null) {
+            holder.itemView.setTag("animated");
+            holder.itemView.startAnimation(AnimationUtils.loadAnimation(
+                holder.itemView.getContext(), R.anim.item_animation_fall_down));
+        }
         
-        // Баланс в долларах с форматированием
+        holder.textViewAssetName.setText(assetItem.getName());
+        String assetType = assetItem.getType();
+        holder.textViewAssetType.setText(Asset.getTypeRu(assetType));
+        // Баланс
         String formattedBalance = "$" + String.format("%,.0f", assetItem.getBalance());
         holder.textViewAssetValue.setText(formattedBalance);
-        
-        // Тип актива (с заглавной буквы)
-        String assetType = assetItem.getType();
-        if (assetType != null && !assetType.isEmpty()) {
-            String capitalizedType = assetType.substring(0, 1).toUpperCase() + assetType.substring(1).toLowerCase();
-            holder.textViewAssetProfit.setText(capitalizedType);
+        // Профит
+        Double profit = assetItem.getProfit();
+        if (profit != null) {
+            String profitStr = (profit >= 0 ? "+" : "") + "$" + String.format("%,.0f", profit);
+            holder.textViewAssetProfit.setText(profitStr);
+            if (profit >= 0) {
+                holder.textViewAssetProfit.setTextColor(holder.itemView.getContext().getResources().getColor(R.color.positive));
+            } else {
+                holder.textViewAssetProfit.setTextColor(holder.itemView.getContext().getResources().getColor(R.color.negative));
+            }
         } else {
-            holder.textViewAssetProfit.setText("Актив");
+            holder.textViewAssetProfit.setText("—");
+            holder.textViewAssetProfit.setTextColor(holder.itemView.getContext().getResources().getColor(R.color.text_hint));
         }
-
-        //holder.imageViewAssetIcon.setImageResource(...); // если нужно
-        //holder.imageViewAssetStatus.setImageResource(...); // если нужно
+        // XIRR, APY, APR
+        TextView xirrView = holder.textViewAssetXirr;
+        TextView apyView = holder.textViewAssetApy;
+        TextView aprView = holder.textViewAssetApr;
+        Double xirr = assetItem.getXirr();
+        Double apy = assetItem.getApy();
+        Double apr = assetItem.getApr();
+        // XIRR
+        if (xirr != null) {
+            xirrView.setText("XIRR: " + String.format("%+.1f%%", xirr));
+            xirrView.setTextColor(holder.itemView.getContext().getResources().getColor(R.color.metric_xirr));
+            xirrView.setTypeface(null, android.graphics.Typeface.BOLD);
+        } else {
+            xirrView.setText("XIRR: —");
+            xirrView.setTextColor(holder.itemView.getContext().getResources().getColor(R.color.text_hint));
+            xirrView.setTypeface(null, android.graphics.Typeface.NORMAL);
+        }
+        // APY
+        if (apy != null) {
+            apyView.setText("APY: " + String.format("%+.1f%%", apy));
+            apyView.setTextColor(holder.itemView.getContext().getResources().getColor(R.color.metric_apy));
+            apyView.setTypeface(null, android.graphics.Typeface.BOLD);
+        } else {
+            apyView.setText("APY: —");
+            apyView.setTextColor(holder.itemView.getContext().getResources().getColor(R.color.text_hint));
+            apyView.setTypeface(null, android.graphics.Typeface.NORMAL);
+        }
+        // APR
+        if (apr != null) {
+            aprView.setText("APR: " + String.format("%+.1f%%", apr));
+            aprView.setTextColor(holder.itemView.getContext().getResources().getColor(R.color.metric_apr));
+            aprView.setTypeface(null, android.graphics.Typeface.BOLD);
+        } else {
+            aprView.setText("APR: —");
+            aprView.setTextColor(holder.itemView.getContext().getResources().getColor(R.color.text_hint));
+            aprView.setTypeface(null, android.graphics.Typeface.NORMAL);
+        }
         holder.itemView.setOnClickListener(v -> {
             onItemClickListener.onItemClick(position);
         });
@@ -116,13 +180,18 @@ public class MyAdapter extends RecyclerView.Adapter<MyAdapter.MyViewHolder> {
 
     // ViewHolder class
     static class MyViewHolder extends RecyclerView.ViewHolder {
-        TextView textViewAssetName, textViewAssetValue, textViewAssetProfit;
+        TextView textViewAssetName, textViewAssetType, textViewAssetValue, textViewAssetProfit;
+        TextView textViewAssetXirr, textViewAssetApy, textViewAssetApr;
         
         public MyViewHolder(@NonNull View itemView) {
             super(itemView);
             textViewAssetName = itemView.findViewById(R.id.textViewAssetName);
+            textViewAssetType = itemView.findViewById(R.id.textViewAssetType);
             textViewAssetValue = itemView.findViewById(R.id.textViewAssetValue);
             textViewAssetProfit = itemView.findViewById(R.id.textViewAssetProfit);
+            textViewAssetXirr = itemView.findViewById(R.id.textViewAssetXirr);
+            textViewAssetApy = itemView.findViewById(R.id.textViewAssetApy);
+            textViewAssetApr = itemView.findViewById(R.id.textViewAssetApr);
         }
     }
 }

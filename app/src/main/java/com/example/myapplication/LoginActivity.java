@@ -28,6 +28,16 @@ public class LoginActivity extends AppCompatActivity {
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        SharedPreferences prefs = getSharedPreferences("auth", Context.MODE_PRIVATE);
+        String token = prefs.getString("token", null);
+        if (token != null) {
+            // Уже залогинен — сразу в MainActivity
+            startActivity(new Intent(this, MainActivity.class));
+            finish();
+            return;
+        }
+
         setContentView(R.layout.activity_login);
 
         editTextEmail = findViewById(R.id.editTextEmail);
@@ -88,6 +98,7 @@ public class LoginActivity extends AppCompatActivity {
             }
             @Override
             public void onFailure(Call<LoginResponse> call, Throwable t) {
+                Log.d("error", t.toString());
                 Toast.makeText(LoginActivity.this, "Ошибка сети", Toast.LENGTH_SHORT).show();
             }
         });
@@ -117,6 +128,7 @@ public class LoginActivity extends AppCompatActivity {
             }
             @Override
             public void onFailure(Call<LoginResponse> call, Throwable t) {
+                Log.d("error", t.toString());
                 Toast.makeText(LoginActivity.this, "Ошибка сети", Toast.LENGTH_SHORT).show();
             }
         });

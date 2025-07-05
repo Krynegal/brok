@@ -7,6 +7,10 @@ public class Asset {
     private String type;
     private double balance;
     private String created_at;
+    private Double xirr;
+    private Double apy;
+    private Double apr;
+    private Double profit;
 
     public Asset(String name, String type, Double balance) {
         this.name = name;
@@ -61,6 +65,50 @@ public class Asset {
 
     public void setCreated_at(String created_at) {
         this.created_at = created_at;
+    }
+
+    public Double getXirr() {
+        return xirr;
+    }
+
+    public void setXirr(Double xirr) {
+        this.xirr = xirr;
+    }
+
+    public Double getApy() {
+        return apy;
+    }
+
+    public void setApy(Double apy) {
+        this.apy = apy;
+    }
+
+    public Double getApr() {
+        return apr;
+    }
+
+    public void setApr(Double apr) {
+        this.apr = apr;
+    }
+
+    public Double getProfit() {
+        return profit;
+    }
+
+    public void setProfit(Double profit) {
+        this.profit = profit;
+    }
+
+    public static String getTypeRu(String typeEn) {
+        if (typeEn == null) return "Тип не задан";
+        switch (typeEn) {
+            case "broker_account": return "Брокерский счёт";
+            case "deposit": return "Депозит";
+            case "real_estate": return "Недвижимость";
+            case "crypto": return "Криптовалюта";
+            case "other": return "Другое";
+            default: return "Тип не задан";
+        }
     }
 }
 

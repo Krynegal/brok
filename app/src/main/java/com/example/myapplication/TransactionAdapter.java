@@ -36,10 +36,10 @@ public class TransactionAdapter extends RecyclerView.Adapter<TransactionAdapter.
         try {
             SimpleDateFormat isoFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.getDefault());
             Date date = isoFormat.parse(transaction.timestamp);
-            SimpleDateFormat displayFormat = new SimpleDateFormat("dd MMM yyyy", Locale.getDefault());
-            holder.textViewTransactionDate.setText(displayFormat.format(date));
+            SimpleDateFormat displayFormat = new SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.getDefault());
+            holder.textViewTransactionDateTime.setText(displayFormat.format(date));
         } catch (Exception e) {
-            holder.textViewTransactionDate.setText(transaction.timestamp); // fallback
+            holder.textViewTransactionDateTime.setText(transaction.timestamp); // fallback
         }
         holder.textViewTransactionType.setText(transaction.type);
         holder.textViewTransactionAmount.setText("$" + String.format("%,.0f", transaction.amount));
@@ -53,14 +53,13 @@ public class TransactionAdapter extends RecyclerView.Adapter<TransactionAdapter.
     }
 
     static class TransactionViewHolder extends RecyclerView.ViewHolder {
-        TextView textViewTransactionDate, textViewTransactionType, textViewTransactionAmount;
+        TextView textViewTransactionDateTime, textViewTransactionType, textViewTransactionAmount;
         ImageView imageViewTransactionIcon;
         public TransactionViewHolder(@NonNull View itemView) {
             super(itemView);
-            textViewTransactionDate = itemView.findViewById(R.id.textViewTransactionDate);
+            textViewTransactionDateTime = itemView.findViewById(R.id.textViewTransactionDateTime);
             textViewTransactionType = itemView.findViewById(R.id.textViewTransactionType);
             textViewTransactionAmount = itemView.findViewById(R.id.textViewTransactionAmount);
-            imageViewTransactionIcon = itemView.findViewById(R.id.imageViewTransactionIcon);
         }
     }
 } 
