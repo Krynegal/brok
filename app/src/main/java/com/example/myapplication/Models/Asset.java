@@ -11,6 +11,7 @@ public class Asset {
     private Double apy;
     private Double apr;
     private Double profit;
+    private String currency;
 
     public Asset(String name, String type, Double balance) {
         this.name = name;
@@ -97,6 +98,13 @@ public class Asset {
 
     public void setProfit(Double profit) {
         this.profit = profit;
+    }
+
+    public String getCurrency() {
+        return currency;
+    }
+    public void setCurrency(String currency) {
+        this.currency = currency;
     }
 
     public static String getTypeRu(String typeEn) {

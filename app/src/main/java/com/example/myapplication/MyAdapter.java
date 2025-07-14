@@ -108,12 +108,13 @@ public class MyAdapter extends RecyclerView.Adapter<MyAdapter.MyViewHolder> {
         String assetType = assetItem.getType();
         holder.textViewAssetType.setText(Asset.getTypeRu(assetType));
         // Баланс
-        String formattedBalance = "$" + String.format("%,.0f", assetItem.getBalance());
+        String currencySymbol = getCurrencySymbol(assetItem.getCurrency());
+        String formattedBalance = currencySymbol + String.format("%,.0f", assetItem.getBalance());
         holder.textViewAssetValue.setText(formattedBalance);
         // Профит
         Double profit = assetItem.getProfit();
         if (profit != null) {
-            String profitStr = (profit >= 0 ? "+" : "") + "$" + String.format("%,.0f", profit);
+            String profitStr = (profit >= 0 ? "+" : "") + currencySymbol + String.format("%,.0f", profit);
             holder.textViewAssetProfit.setText(profitStr);
             if (profit >= 0) {
                 holder.textViewAssetProfit.setTextColor(holder.itemView.getContext().getResources().getColor(R.color.positive));
@@ -171,6 +172,23 @@ public class MyAdapter extends RecyclerView.Adapter<MyAdapter.MyViewHolder> {
             }
             return false;
         });
+    }
+
+    private String getCurrencySymbol(String code) {
+        if (code == null) return "$";
+        switch (code) {
+            case "USD": return "$";
+            case "EUR": return "€";
+            case "RUB": return "₽";
+            case "GBP": return "£";
+            case "JPY": return "¥";
+            case "CNY": return "¥";
+            case "CHF": return "₣";
+            case "CAD": return "$";
+            case "AUD": return "$";
+            case "KRW": return "₩";
+            default: return code + " ";
+        }
     }
 
     @Override

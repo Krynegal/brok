@@ -47,6 +47,9 @@ import retrofit2.Response;
 import android.widget.Spinner;
 import android.widget.ArrayAdapter;
 
+import com.example.myapplication.User;
+import com.example.myapplication.ExchangeRateResponse;
+
 public class MainActivity extends AppCompatActivity {
 
     private AppBarConfiguration appBarConfiguration;
@@ -54,6 +57,12 @@ public class MainActivity extends AppCompatActivity {
     private ActivityResultLauncher<Intent> resultLauncher;
     private MyAdapter adapter;
     private List<Asset> assetList = new ArrayList<>();
+    private User currentUser;
+    private String baseCurrency;
+    private java.util.Map<String, Double> exchangeRates = new java.util.HashMap<>(); // from_currency -> rate to base
+    private boolean assetsLoaded = false;
+    private int exchangeRatesToLoad = 0;
+    private int exchangeRatesLoaded = 0;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -208,33 +217,43 @@ public class MainActivity extends AppCompatActivity {
                 if (response.isSuccessful() && response.body() != null) {
                     assetList.clear();
                     assetList.addAll(response.body());
+                    assetsLoaded = true;
+                    Log.d("DEBUG", "Активы загружены, курсы ещё не все получены: " + (exchangeRatesToLoad - exchangeRatesLoaded));
                     
-                    // Добавляем тестовые данные для проверки отображения функций
-                    if (assetList.isEmpty()) {
-                        Asset testAsset1 = new Asset("Тестовый актив 1", "stock", 10000.0);
-                        testAsset1.setXirr(15.5);
-                        testAsset1.setApy(12.3);
-                        testAsset1.setApr(10.8);
-                        testAsset1.setProfit(1500.0);
-                        assetList.add(testAsset1);
-                        
-                        Asset testAsset2 = new Asset("Тестовый актив 2", "bond", 5000.0);
-                        testAsset2.setXirr(8.2);
-                        testAsset2.setApy(7.1);
-                        testAsset2.setApr(6.5);
-                        testAsset2.setProfit(300.0);
-                        assetList.add(testAsset2);
-                    }
+                    // Удалено: добавление тестовых данных
+                    // if (assetList.isEmpty()) {
+                    //     Asset testAsset1 = new Asset("Тестовый актив 1", "stock", 10000.0);
+                    //     testAsset1.setXirr(15.5);
+                    //     testAsset1.setApy(12.3);
+                    //     testAsset1.setApr(10.8);
+                    //     testAsset1.setProfit(1500.0);
+                    //     assetList.add(testAsset1);
+                    //     Asset testAsset2 = new Asset("Тестовый актив 2", "bond", 5000.0);
+                    //     testAsset2.setXirr(8.2);
+                    //     testAsset2.setApy(7.1);
+                    //     testAsset2.setApr(6.5);
+                    //     testAsset2.setProfit(300.0);
+                    //     assetList.add(testAsset2);
+                    // }
                     
                     adapter.notifyDataSetChanged();
                     adapter.updateTotalSum();
-                    updateTotalSumTextView();
+                    fetchUserAndRecalculateAssetsSum(() -> updateTotalSumTextView());
                     updateEmptyState();
                     Log.d("MainActivity", "Активы загружены: " + assetList.size() + " шт.");
                     
                     // Принудительно обновляем метрики портфеля
                     updatePortfolioMetrics();
                 } else {
+                    // Обработка 401: невалидный или истекший токен
+                    if (response.code() == 401) {
+                        SharedPreferences prefs = getSharedPreferences("auth", MODE_PRIVATE);
+                        prefs.edit().remove("token").apply();
+                        Intent intent = new Intent(MainActivity.this, LoginActivity.class);
+                        startActivity(intent);
+                        finish();
+                        return;
+                    }
                     String errorBody = "";
                     try {
                         if (response.errorBody() != null) {
@@ -275,6 +294,32 @@ public class MainActivity extends AppCompatActivity {
                 showPortfolioDetails();
             }
         });
+
+        Spinner spinnerSort = findViewById(R.id.spinnerSortAssets);
+        String[] sortOptions = {"Без сортировки", "Баланс по возрастанию", "Баланс по убыванию"};
+        ArrayAdapter<String> sortAdapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, sortOptions);
+        spinnerSort.setAdapter(sortAdapter);
+        spinnerSort.setSelection(0);
+        spinnerSort.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(android.widget.AdapterView<?> parent, View view, int position, long id) {
+                if (position == 0) {
+                    // Без сортировки — можно восстановить исходный порядок, если нужно
+                    // Пока ничего не делаем
+                    adapter.notifyDataSetChanged();
+                } else if (position == 1) {
+                    // Баланс по возрастанию
+                    assetList.sort(java.util.Comparator.comparingDouble(Asset::getBalance));
+                    adapter.notifyDataSetChanged();
+                } else if (position == 2) {
+                    // Баланс по убыванию
+                    assetList.sort((a, b) -> Double.compare(b.getBalance(), a.getBalance()));
+                    adapter.notifyDataSetChanged();
+                }
+            }
+            @Override
+            public void onNothingSelected(android.widget.AdapterView<?> parent) {}
+        });
     }
 
     // Метод для обновления данных в адаптере
@@ -288,17 +333,125 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    private void fetchUserAndRecalculateAssetsSum(final Runnable onDone) {
+        AssetApiService api = ApiClient.getClient().create(AssetApiService.class);
+        SharedPreferences prefs = getSharedPreferences("auth", MODE_PRIVATE);
+        String rawToken = prefs.getString("token", null);
+        if (rawToken == null) return;
+        final String token = "Bearer " + rawToken;
+        api.getMe(token).enqueue(new Callback<User>() {
+            @Override
+            public void onResponse(Call<User> call, Response<User> response) {
+                if (response.isSuccessful() && response.body() != null) {
+                    currentUser = response.body();
+                    baseCurrency = currentUser.base_currency != null ? currentUser.base_currency : "USD";
+                    recalculateAssetsSum(token, onDone);
+                }
+            }
+            @Override
+            public void onFailure(Call<User> call, Throwable t) {
+                baseCurrency = "USD";
+                recalculateAssetsSum(token, onDone);
+            }
+        });
+    }
+    private void recalculateAssetsSum(String token, final Runnable onDone) {
+        // Собираем уникальные валюты, которых нет в кэше
+        java.util.Set<String> currencies = new java.util.HashSet<>();
+        for (Asset asset : assetList) {
+            String cur = asset.getCurrency();
+            if (cur != null && !cur.equals(baseCurrency) && !exchangeRates.containsKey(cur)) {
+                currencies.add(cur);
+            }
+        }
+        exchangeRatesToLoad = currencies.size();
+        exchangeRatesLoaded = 0;
+        if (currencies.isEmpty()) {
+            if (onDone != null) onDone.run();
+            return;
+        }
+        // Для каждой валюты делаем запрос курса
+        final int[] remaining = {currencies.size()};
+        for (String from : currencies) {
+            Log.d("EXCHANGE_RATE", "Параметры запроса: from=" + from + ", to=" + baseCurrency);
+            if (from == null || from.isEmpty() || baseCurrency == null || baseCurrency.isEmpty()) {
+                Log.e("EXCHANGE_RATE", "ОШИБКА: пустые параметры from=" + from + ", to=" + baseCurrency + ". Курс не будет запрошен.");
+                remaining[0]--;
+                if (remaining[0] == 0 && onDone != null) onDone.run();
+                continue;
+            }
+            Log.d("EXCHANGE_RATE", "Запрос курса: " + from + " -> " + baseCurrency);
+            AssetApiService api = ApiClient.getClient().create(AssetApiService.class);
+            api.getExchangeRate(token, from, baseCurrency).enqueue(new Callback<ExchangeRateResponse>() {
+                @Override
+                public void onResponse(Call<ExchangeRateResponse> call, Response<ExchangeRateResponse> response) {
+                    Log.d("EXCHANGE_RATE", "Ответ курса: " + from + " -> " + baseCurrency + ", HTTP: " + response.code() + ", body: " + (response.body() != null ? response.body().rate : "null"));
+                    exchangeRatesLoaded++;
+                    Log.d("DEBUG", "Курс получен, осталось: " + (exchangeRatesToLoad - exchangeRatesLoaded));
+                    if (response.isSuccessful() && response.body() != null) {
+                        exchangeRates.put(from, response.body().rate);
+                    } else {
+                        exchangeRates.put(from, null);
+                    }
+                    remaining[0]--;
+                    if (remaining[0] == 0 && onDone != null) onDone.run();
+                }
+                @Override
+                public void onFailure(Call<ExchangeRateResponse> call, Throwable t) {
+                    Log.e("EXCHANGE_RATE", "Ошибка запроса курса: " + from + " -> " + baseCurrency, t);
+                    exchangeRatesLoaded++;
+                    Log.d("DEBUG", "Курс получен (ошибка), осталось: " + (exchangeRatesToLoad - exchangeRatesLoaded));
+                    exchangeRates.put(from, null);
+                    remaining[0]--;
+                    if (remaining[0] == 0 && onDone != null) onDone.run();
+                }
+            });
+        }
+    }
     private void updateTotalSumTextView() {
-        if (adapter != null) {
-            Double totalSum = adapter.getTotalSum();
-            TextView totalAssetsSum = findViewById(R.id.textViewAssetsSum);
-            totalAssetsSum.setText("$" + String.format("%,.0f", totalSum));
-            
-            // Обновляем общую прибыль и значения функции для портфеля
-            updatePortfolioMetrics();
-            
-            // Управляем состоянием пустого списка
-            updateEmptyState();
+        SharedPreferences prefs = getSharedPreferences("auth", MODE_PRIVATE);
+        String rawToken = prefs.getString("token", null);
+        if (rawToken == null) return;
+        final String token = "Bearer " + rawToken;
+        if (baseCurrency == null) {
+            fetchUserAndRecalculateAssetsSum(() -> updateTotalSumTextView());
+            return;
+        }
+        double totalSum = 0.0;
+        for (Asset asset : assetList) {
+            double value = asset.getBalance();
+            String assetCur = asset.getCurrency();
+            if (assetCur != null && !assetCur.equals(baseCurrency)) {
+                Double rate = exchangeRates.get(assetCur);
+                if (rate != null) {
+                    value = value * rate;
+                }
+            }
+            totalSum += value;
+        }
+        TextView totalAssetsSum = findViewById(R.id.textViewAssetsSum);
+        String symbol = getCurrencySymbol(baseCurrency);
+        totalAssetsSum.setText(symbol + String.format("%,.0f", totalSum));
+        // Удалено: отображение курсов
+        // Обновляем общую прибыль и значения функции для портфеля
+        updatePortfolioMetrics();
+        // Управляем состоянием пустого списка
+        updateEmptyState();
+    }
+    private String getCurrencySymbol(String code) {
+        if (code == null) return "$";
+        switch (code) {
+            case "USD": return "$";
+            case "EUR": return "€";
+            case "RUB": return "₽";
+            case "GBP": return "£";
+            case "JPY": return "¥";
+            case "CNY": return "¥";
+            case "CHF": return "₣";
+            case "CAD": return "$";
+            case "AUD": return "$";
+            case "KRW": return "₩";
+            default: return code + " ";
         }
     }
 
@@ -477,7 +630,61 @@ public class MainActivity extends AppCompatActivity {
         typeSpinner.setAdapter(adapterSpinner);
         final com.google.android.material.textfield.TextInputEditText editName = dialogView.findViewById(R.id.editTextAssetName);
         final com.google.android.material.textfield.TextInputEditText editDescription = dialogView.findViewById(R.id.editTextAssetDescription);
-
+        Spinner currencySpinner = dialogView.findViewById(R.id.spinnerAssetCurrency);
+        List<String> currencyCodes = new ArrayList<>();
+        List<SupportedCurrency> supportedCurrencies = new ArrayList<>();
+        ArrayAdapter<String> currencyAdapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, currencyCodes);
+        currencySpinner.setAdapter(currencyAdapter);
+        // Загрузка валют с бэкенда
+        final List<String> popularOrder = java.util.Arrays.asList("USD", "EUR", "RUB", "GBP", "JPY", "CNY", "CHF", "CAD", "AUD", "KRW");
+        final java.util.Map<String, Integer> popularityMap = new java.util.HashMap<>();
+        for (int i = 0; i < popularOrder.size(); i++) popularityMap.put(popularOrder.get(i), i);
+        api.getSupportedCurrencies(token).enqueue(new Callback<List<SupportedCurrency>>() {
+            @Override
+            public void onResponse(Call<List<SupportedCurrency>> call, Response<List<SupportedCurrency>> response) {
+                if (response.isSuccessful() && response.body() != null) {
+                    supportedCurrencies.clear();
+                    supportedCurrencies.addAll(response.body());
+                    currencyCodes.clear();
+                    java.util.List<SupportedCurrency> sorted = new java.util.ArrayList<>();
+                    for (SupportedCurrency c : supportedCurrencies) {
+                        if (c.is_supported) sorted.add(c);
+                    }
+                    // Сортировка: сначала популярные, потом остальные по алфавиту
+                    sorted.sort((a, b) -> {
+                        Integer ia = popularityMap.get(a.code);
+                        Integer ib = popularityMap.get(b.code);
+                        if (ia != null && ib != null) return ia - ib;
+                        if (ia != null) return -1;
+                        if (ib != null) return 1;
+                        return a.code.compareTo(b.code);
+                    });
+                    for (SupportedCurrency c : sorted) {
+                        currencyCodes.add(c.code + (c.symbol != null && !c.symbol.isEmpty() ? (" (" + c.symbol + ")") : ""));
+                    }
+                    currencyAdapter.notifyDataSetChanged();
+                    if (!currencyCodes.isEmpty()) {
+                        currencySpinner.setSelection(0);
+                    }
+                } else {
+                    if (currencyCodes.isEmpty()) {
+                        currencyCodes.add("USD");
+                        currencyCodes.add("EUR");
+                        currencyCodes.add("RUB");
+                        currencyAdapter.notifyDataSetChanged();
+                    }
+                }
+            }
+            @Override
+            public void onFailure(Call<List<SupportedCurrency>> call, Throwable t) {
+                if (currencyCodes.isEmpty()) {
+                    currencyCodes.add("USD");
+                    currencyCodes.add("EUR");
+                    currencyCodes.add("RUB");
+                    currencyAdapter.notifyDataSetChanged();
+                }
+            }
+        });
         new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
                 .setView(dialogView)
                 .setPositiveButton("Добавить", (dialog, which) -> {
@@ -489,13 +696,24 @@ public class MainActivity extends AppCompatActivity {
                     String type = typesEn[selectedIdx];
                     String name = editName.getText() != null ? editName.getText().toString() : "";
                     String description = editDescription.getText() != null ? editDescription.getText().toString() : "";
+                    int currencyIdx = currencySpinner.getSelectedItemPosition();
+                    String currencyCode = null;
+                    if (currencyIdx >= 0 && currencyIdx < currencyCodes.size()) {
+                        String codeWithSymbol = currencyCodes.get(currencyIdx);
+                        currencyCode = codeWithSymbol.split(" ")[0]; // Берём только код
+                    }
                     if (name.isEmpty()) {
                         Toast.makeText(this, "Введите название актива", Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+                    if (currencyCode == null || currencyCode.isEmpty()) {
+                        Toast.makeText(this, "Пожалуйста, выберите валюту", Toast.LENGTH_SHORT).show();
                         return;
                     }
                     CreateAssetRequest req = new CreateAssetRequest();
                     req.name = name;
                     req.type = type;
+                    req.currency = currencyCode;
                     // Можно добавить описание в модель, если поддерживается бэкендом
                     api.createAsset(token, req).enqueue(new Callback<Asset>() {
                         @Override
@@ -534,7 +752,7 @@ public class MainActivity extends AppCompatActivity {
                                 }
                                 Log.e("CREATE ASSET", "Ошибка создания актива. HTTP: " + response.code() + 
                                       ", URL: " + call.request().url() + 
-                                      ", Request: name=" + req.name + ", type=" + req.type +
+                                      ", Request: name=" + req.name + ", type=" + req.type + ", currency=" + req.currency +
                                       ", Error: " + errorBody);
                                 Toast.makeText(MainActivity.this, "Ошибка добавления актива", Toast.LENGTH_SHORT).show();
                             }
@@ -573,6 +791,11 @@ public class MainActivity extends AppCompatActivity {
             intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
             startActivity(intent);
             finish();
+            return true;
+        }
+        if (id == R.id.action_exchange_rates) {
+            Intent intent = new Intent(this, ExchangeRatesActivity.class);
+            startActivity(intent);
             return true;
         }
         return super.onOptionsItemSelected(item);

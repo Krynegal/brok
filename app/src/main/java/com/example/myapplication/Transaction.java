@@ -7,6 +7,7 @@ public class Transaction {
     public String type;         // "income" или "expense"
     public String description;
     public String timestamp;    // ISO-строка, например "2025-06-28T07:23:24.036Z"
+    public String currency;
 
     public static final String TYPE_DEPOSIT = "deposit";
     public static final String TYPE_WITHDRAWAL = "withdrawal";

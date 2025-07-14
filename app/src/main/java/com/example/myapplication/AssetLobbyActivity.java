@@ -2,6 +2,8 @@ package com.example.myapplication;
 
 import android.annotation.SuppressLint;
 import android.app.AlertDialog;
+import android.app.DatePickerDialog;
+import android.app.TimePickerDialog;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -24,6 +26,7 @@ import com.example.myapplication.Models.Asset;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
@@ -247,12 +250,30 @@ public class AssetLobbyActivity extends AppCompatActivity {
 
     private void updateProfitAndBalance(Asset asset) {
         Double profit = asset.getProfit();
-        String balanceStr = "$" + String.format("%,.0f", assetBalance);
+        String currencySymbol = getCurrencySymbol(asset.getCurrency());
+        String balanceStr = currencySymbol + String.format("%,.0f", assetBalance);
         if (profit != null) {
-            String profitStr = (profit >= 0 ? "+" : "") + "$" + String.format("%,.0f", profit);
+            String profitStr = (profit >= 0 ? "+" : "") + currencySymbol + String.format("%,.0f", profit);
             balanceStr += " (" + profitStr + ")";
         }
         balanceView.setText(balanceStr);
+    }
+
+    private String getCurrencySymbol(String code) {
+        if (code == null) return "$";
+        switch (code) {
+            case "USD": return "$";
+            case "EUR": return "€";
+            case "RUB": return "₽";
+            case "GBP": return "£";
+            case "JPY": return "¥";
+            case "CNY": return "¥";
+            case "CHF": return "₣";
+            case "CAD": return "$";
+            case "AUD": return "$";
+            case "KRW": return "₩";
+            default: return code + " ";
+        }
     }
 
     private void showAddTransactionDialog() {
@@ -266,7 +287,54 @@ public class AssetLobbyActivity extends AppCompatActivity {
         typeSpinner.setAdapter(adapter);
         final com.google.android.material.textfield.TextInputEditText editAmount = dialogView.findViewById(R.id.editTextAmount);
         final com.google.android.material.textfield.TextInputEditText editDescription = dialogView.findViewById(R.id.editTextDescription);
+        final com.google.android.material.textfield.TextInputEditText editDate = dialogView.findViewById(R.id.editTextDate);
 
+        // Устанавливаем текущую дату по умолчанию
+        SimpleDateFormat displayFormat = new SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.getDefault());
+        SimpleDateFormat isoFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.getDefault());
+        String currentDate = displayFormat.format(new Date());
+        editDate.setText(currentDate);
+
+        // Обработчик клика по полю даты
+        editDate.setOnClickListener(v -> {
+            Calendar calendar = Calendar.getInstance();
+            
+            // Показываем DatePickerDialog
+            DatePickerDialog datePickerDialog = new DatePickerDialog(
+                this,
+                (view, year, month, dayOfMonth) -> {
+                    calendar.set(Calendar.YEAR, year);
+                    calendar.set(Calendar.MONTH, month);
+                    calendar.set(Calendar.DAY_OF_MONTH, dayOfMonth);
+                    
+                    // После выбора даты показываем TimePickerDialog
+                    TimePickerDialog timePickerDialog = new TimePickerDialog(
+                        this,
+                        (timeView, hourOfDay, minute) -> {
+                            calendar.set(Calendar.HOUR_OF_DAY, hourOfDay);
+                            calendar.set(Calendar.MINUTE, minute);
+                            calendar.set(Calendar.SECOND, 0);
+                            calendar.set(Calendar.MILLISECOND, 0);
+                            
+                            // Обновляем отображаемую дату
+                            String selectedDate = displayFormat.format(calendar.getTime());
+                            editDate.setText(selectedDate);
+                        },
+                        calendar.get(Calendar.HOUR_OF_DAY),
+                        calendar.get(Calendar.MINUTE),
+                        true
+                    );
+                    timePickerDialog.show();
+                },
+                calendar.get(Calendar.YEAR),
+                calendar.get(Calendar.MONTH),
+                calendar.get(Calendar.DAY_OF_MONTH)
+            );
+            datePickerDialog.show();
+        });
+
+        // Удаляю Spinner валюты и всю логику, связанную с currencySpinner, currencyCodes, supportedCurrencies, currencyAdapter, getSupportedCurrencies, выбор валюты и req.currency.
+        // Оставляю только выбор типа, суммы, описания, даты.
         new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
                 .setView(dialogView)
                 .setPositiveButton("Добавить", (dialog, which) -> {
@@ -278,6 +346,7 @@ public class AssetLobbyActivity extends AppCompatActivity {
                     String type = typesEn[selectedIdx];
                     String amountStr = editAmount.getText() != null ? editAmount.getText().toString() : "";
                     String description = editDescription.getText() != null ? editDescription.getText().toString() : "";
+                    String dateStr = editDate.getText() != null ? editDate.getText().toString() : "";
                     if (amountStr.isEmpty()) {
                         Toast.makeText(this, "Введите сумму", Toast.LENGTH_SHORT).show();
                         return;
@@ -289,11 +358,23 @@ public class AssetLobbyActivity extends AppCompatActivity {
                         Toast.makeText(this, "Некорректная сумма", Toast.LENGTH_SHORT).show();
                         return;
                     }
-                    // Отправляем транзакцию на backend
+                    String timestamp = null;
+                    if (!dateStr.isEmpty()) {
+                        try {
+                            Date selectedDate = displayFormat.parse(dateStr);
+                            timestamp = isoFormat.format(selectedDate);
+                        } catch (Exception e) {
+                            timestamp = isoFormat.format(new Date());
+                        }
+                    }
                     CreateTransactionRequest req = new CreateTransactionRequest();
                     req.amount = amount;
                     req.type = type;
                     req.description = description;
+                    req.timestamp = timestamp;
+                    if (currentAsset != null && currentAsset.getCurrency() != null) {
+                        req.currency = currentAsset.getCurrency();
+                    }
                     AssetApiService api = ApiClient.getClient().create(AssetApiService.class);
                     api.createTransaction(token, assetId, req).enqueue(new retrofit2.Callback<Void>() {
                         @Override
@@ -302,6 +383,17 @@ public class AssetLobbyActivity extends AppCompatActivity {
                                 loadAssetData();
                                 Toast.makeText(AssetLobbyActivity.this, "Операция добавлена", Toast.LENGTH_SHORT).show();
                             } else {
+                                String errorBody = "";
+                                try {
+                                    if (response.errorBody() != null) {
+                                        errorBody = response.errorBody().string();
+                                    }
+                                } catch (Exception e) {
+                                    errorBody = "Не удалось прочитать тело ошибки";
+                                }
+                                Log.e("AssetLobby", "Ошибка добавления операции. HTTP: " + response.code() +
+                                        ", URL: " + call.request().url() +
+                                        ", Error: " + errorBody);
                                 Toast.makeText(AssetLobbyActivity.this, "Ошибка добавления операции", Toast.LENGTH_SHORT).show();
                             }
                         }

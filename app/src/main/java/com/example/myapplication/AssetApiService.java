@@ -11,6 +11,7 @@ import retrofit2.http.Header;
 import retrofit2.http.PATCH;
 import retrofit2.http.POST;
 import retrofit2.http.Path;
+import retrofit2.http.Query;
 
 public interface AssetApiService {
     // Регистрация
@@ -52,4 +53,16 @@ public interface AssetApiService {
     // Удалить транзакцию
     @DELETE("/api/transactions/{id}")
     Call<Void> deleteTransaction(@Header("Authorization") String token, @Path("id") String transactionId);
+
+    // Получить поддерживаемые валюты
+    @GET("/api/currencies")
+    Call<List<SupportedCurrency>> getSupportedCurrencies(@Header("Authorization") String token);
+
+    // Получить курс между двумя валютами (НОВЫЙ GET-эндпоинт)
+    @GET("/api/exchange-rates")
+    Call<ExchangeRateResponse> getExchangeRate(
+        @Header("Authorization") String token,
+        @Query("from_currency") String fromCurrency,
+        @Query("to_currency") String toCurrency
+    );
 } 

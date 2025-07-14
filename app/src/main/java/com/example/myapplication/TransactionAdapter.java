@@ -42,9 +42,27 @@ public class TransactionAdapter extends RecyclerView.Adapter<TransactionAdapter.
             holder.textViewTransactionDateTime.setText(transaction.timestamp); // fallback
         }
         holder.textViewTransactionType.setText(transaction.type);
-        holder.textViewTransactionAmount.setText("$" + String.format("%,.0f", transaction.amount));
+        String currencySymbol = getCurrencySymbol(transaction.currency);
+        holder.textViewTransactionAmount.setText(currencySymbol + String.format("%,.0f", transaction.amount));
         // Можно менять иконку в зависимости от типа операции
         // holder.imageViewTransactionIcon.setImageResource(...);
+    }
+
+    private String getCurrencySymbol(String code) {
+        if (code == null) return "$";
+        switch (code) {
+            case "USD": return "$";
+            case "EUR": return "€";
+            case "RUB": return "₽";
+            case "GBP": return "£";
+            case "JPY": return "¥";
+            case "CNY": return "¥";
+            case "CHF": return "₣";
+            case "CAD": return "$";
+            case "AUD": return "$";
+            case "KRW": return "₩";
+            default: return code + " ";
+        }
     }
 
     @Override
