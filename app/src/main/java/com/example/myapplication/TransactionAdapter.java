@@ -34,12 +34,24 @@ public class TransactionAdapter extends RecyclerView.Adapter<TransactionAdapter.
         Transaction transaction = transactionList.get(position);
         // Преобразуем ISO-дату в человекочитаемый формат
         try {
-            SimpleDateFormat isoFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.getDefault());
-            Date date = isoFormat.parse(transaction.timestamp);
-            SimpleDateFormat displayFormat = new SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.getDefault());
-            holder.textViewTransactionDateTime.setText(displayFormat.format(date));
+            Date date = null;
+            SimpleDateFormat isoFormatMs = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.getDefault());
+            isoFormatMs.setTimeZone(java.util.TimeZone.getTimeZone("UTC"));
+            try {
+                date = isoFormatMs.parse(transaction.timestamp);
+            } catch (Exception e1) {
+                SimpleDateFormat isoFormatNoMs = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.getDefault());
+                isoFormatNoMs.setTimeZone(java.util.TimeZone.getTimeZone("UTC"));
+                date = isoFormatNoMs.parse(transaction.timestamp);
+            }
+            SimpleDateFormat dateFormat = new SimpleDateFormat("dd.MM.yyyy", Locale.getDefault());
+            SimpleDateFormat timeFormat = new SimpleDateFormat("HH:mm", Locale.getDefault());
+            holder.textViewTransactionDate.setText(dateFormat.format(date));
+            holder.textViewTransactionTime.setText(timeFormat.format(date));
         } catch (Exception e) {
-            holder.textViewTransactionDateTime.setText(transaction.timestamp); // fallback
+            android.util.Log.e("TransactionAdapter", "Ошибка парсинга даты: '" + transaction.timestamp + "'", e);
+            holder.textViewTransactionDate.setText(transaction.timestamp != null ? transaction.timestamp : "");
+            holder.textViewTransactionTime.setText("");
         }
         holder.textViewTransactionType.setText(transaction.type);
         String currencySymbol = getCurrencySymbol(transaction.currency);
@@ -71,11 +83,12 @@ public class TransactionAdapter extends RecyclerView.Adapter<TransactionAdapter.
     }
 
     static class TransactionViewHolder extends RecyclerView.ViewHolder {
-        TextView textViewTransactionDateTime, textViewTransactionType, textViewTransactionAmount;
+        TextView textViewTransactionDate, textViewTransactionTime, textViewTransactionType, textViewTransactionAmount;
         ImageView imageViewTransactionIcon;
         public TransactionViewHolder(@NonNull View itemView) {
             super(itemView);
-            textViewTransactionDateTime = itemView.findViewById(R.id.textViewTransactionDateTime);
+            textViewTransactionDate = itemView.findViewById(R.id.textViewTransactionDate);
+            textViewTransactionTime = itemView.findViewById(R.id.textViewTransactionTime);
             textViewTransactionType = itemView.findViewById(R.id.textViewTransactionType);
             textViewTransactionAmount = itemView.findViewById(R.id.textViewTransactionAmount);
         }

@@ -515,8 +515,9 @@ public class MainActivity extends AppCompatActivity {
 
         // Обновляем отображение общей прибыли
         TextView portfolioProfitView = findViewById(R.id.textViewPortfolioProfit);
-        String profitText = "Прибыль: " + (totalProfit >= 0 ? "+" : "") + "$" + String.format("%,.0f", totalProfit);
-        portfolioProfitView.setText(profitText);
+        String profitValue = (totalProfit >= 0 ? "+" : "") + "$" + String.format("%,.0f", totalProfit);
+        String profitLabel = "Прибыль:";
+        portfolioProfitView.setText(profitLabel + "\n" + profitValue);
         
         // Устанавливаем цвет в зависимости от прибыли
         if (totalProfit >= 0) {
@@ -587,9 +588,22 @@ public class MainActivity extends AppCompatActivity {
         dialogLayout.setOrientation(LinearLayout.VERTICAL);
         dialogLayout.setPadding(32, 24, 32, 24);
         
-        // Общая сумма активов
+        // Общая сумма активов (берём из основного блока)
         TextView totalAssetsView = new TextView(this);
-        totalAssetsView.setText("Общая сумма: $" + String.format("%,.0f", adapter.getTotalSum()));
+        String symbol = getCurrencySymbol(baseCurrency);
+        double totalSum = 0.0;
+        for (Asset asset : assetList) {
+            double value = asset.getBalance();
+            String assetCur = asset.getCurrency();
+            if (assetCur != null && !assetCur.equals(baseCurrency)) {
+                Double rate = exchangeRates.get(assetCur);
+                if (rate != null) {
+                    value = value * rate;
+                }
+            }
+            totalSum += value;
+        }
+        totalAssetsView.setText("Общая сумма: " + symbol + String.format("%,.0f", totalSum));
         totalAssetsView.setTextSize(18);
         totalAssetsView.setTextColor(getResources().getColor(android.R.color.black));
         totalAssetsView.setPadding(0, 0, 0, 16);
@@ -603,16 +617,7 @@ public class MainActivity extends AppCompatActivity {
         assetsCountView.setPadding(0, 0, 0, 16);
         dialogLayout.addView(assetsCountView);
         
-        // Средний баланс на актив
-        if (!assetList.isEmpty()) {
-            double avgBalance = adapter.getTotalSum() / assetList.size();
-            TextView avgBalanceView = new TextView(this);
-            avgBalanceView.setText("Средний баланс: $" + String.format("%,.0f", avgBalance));
-            avgBalanceView.setTextSize(16);
-            avgBalanceView.setTextColor(getResources().getColor(android.R.color.darker_gray));
-            avgBalanceView.setPadding(0, 0, 0, 16);
-            dialogLayout.addView(avgBalanceView);
-        }
+        // Удаляем средний баланс
         
         builder.setView(dialogLayout);
         builder.setPositiveButton("Закрыть", null);

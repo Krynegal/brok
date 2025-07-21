@@ -84,14 +84,13 @@
                     android:textColor="@color/positive" />
             </LinearLayout>
 
-            <LinearLayout
+            <com.google.android.flexbox.FlexboxLayout
                 android:id="@+id/portfolioMetricsBlock"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal"
                 android:layout_marginTop="8dp"
-                android:gravity="center_vertical">
-
+                app:flexWrap="wrap"
+                app:alignItems="center">
                 <TextView
                     android:id="@+id/textViewPortfolioXirr"
                     android:layout_width="wrap_content"
@@ -101,7 +100,6 @@
                     android:textColor="@color/metric_xirr"
                     android:textStyle="bold"
                     android:layout_marginEnd="20dp" />
-
                 <TextView
                     android:id="@+id/textViewPortfolioApy"
                     android:layout_width="wrap_content"
@@ -111,7 +109,6 @@
                     android:textColor="@color/metric_apy"
                     android:textStyle="bold"
                     android:layout_marginEnd="20dp" />
-
                 <TextView
                     android:id="@+id/textViewPortfolioApr"
                     android:layout_width="wrap_content"
@@ -120,7 +117,7 @@
                     android:textSize="16sp"
                     android:textColor="@color/metric_apr"
                     android:textStyle="bold" />
-            </LinearLayout>
+            </com.google.android.flexbox.FlexboxLayout>
         </LinearLayout>
     </com.google.android.material.card.MaterialCardView>
 
